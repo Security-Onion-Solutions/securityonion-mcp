@@ -8,7 +8,7 @@ This project contains the backend server for the Security Onion Model Context Pr
 
 ## Prerequisites
 
-*   Python 3.8+
+*   Python 3.12+
 *   Access to set environment variables
 
 ## Environment Variables
