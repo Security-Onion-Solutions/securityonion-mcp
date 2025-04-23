@@ -28,14 +28,15 @@ else:
 
 # Default fields to include when filtering event payloads
 DEFAULT_FIELDS = {
-    "@timestamp", "destination.ip", "destination.port", "dns.query.name",
-    "event.dataset", "event.severity", "event.severity_label", "file.mime_type",
+    "@timestamp", "client.name", "destination.ip", "destination.port", "dns.query.name",
+    "event.category", "event.module", 
+    "event.dataset", "event.severity", "event.severity_label", "file.mime_type", "file.name",
     "hash.md5", "hash.sha1", "host.mac", "http.method", "http.useragent",
     "http.virtual_host", "log.id.uid", "network.community_id", "network.protocol",
-    "network.transport", "observer.name", "rule.category", "rule.name",
+    "network.transport", "notice.message", "observer.name", "process.name", "process.executable", "rule.category", "rule.name",
     "rule.uuid", "software.name", "software.type", "software.version.unparsed",
     "source.ip", "source.port", "ssh.cypher_algorithm", "ssh.client",
-    "ssh.server", "ssl.cipher", "ssl.server_name", "ssl.version", "weird.name"
+    "ssh.server", "ssl.cipher", "ssl.server_name", "ssl.version", "user.name", "weird.name"
 }
 # --- Configuration Check ---
 
