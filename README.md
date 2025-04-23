@@ -1,6 +1,6 @@
 # Security Onion MCP Server
 
-![Tests](https://github.com/username/securityonion-mcp/actions/workflows/tests.yml/badge.svg)
+![Tests](https://github.com/Security-Onion-Solutions/securityonion-mcp/actions/workflows/tests.yml/badge.svg)
 ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
 
