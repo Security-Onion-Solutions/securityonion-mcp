@@ -210,20 +210,9 @@ The Security Onion MCP Server filters event payloads to reduce context size when
 
 ### Default Fields
 
-The server includes a predefined set of default fields in `so_modules/config.py`:
+The server includes a predefined set of default fields in `so_modules/config.py`. These fields are used to filter event payloads to include only the most relevant security information.
 
-```python
-DEFAULT_FIELDS = {
-    "@timestamp", "destination.ip", "destination.port", "dns.query.name",
-    "event.dataset", "event.severity", "event.severity_label", "file.mime_type",
-    "hash.md5", "hash.sha1", "host.mac", "http.method", "http.useragent",
-    "http.virtual_host", "log.id.uid", "network.community_id", "network.protocol",
-    "network.transport", "observer.name", "rule.category", "rule.name",
-    "rule.uuid", "software.name", "software.type", "software.version.unparsed",
-    "source.ip", "source.port", "ssh.cypher_algorithm", "ssh.client",
-    "ssh.server", "ssl.cipher", "ssl.server_name", "ssl.version", "weird.name"
-}
-```
+To see the current list of default fields, please refer to the `DEFAULT_FIELDS` set in the `so_modules/config.py` file.
 
 ### Customizing Fields
 
@@ -234,15 +223,16 @@ To add additional fields to the filtering:
 3. Add your desired fields to the set
 4. Restart the server for changes to take effect
 
-For example, to add `user.name` and `process.name` fields:
+For example, to add a new field:
 
 ```python
 DEFAULT_FIELDS = {
-    "@timestamp", "destination.ip", "destination.port", "dns.query.name",
-    # ... existing fields ...
-    "user.name", "process.name"  # Added fields
+    # Existing fields are already defined in the set
+    "your.new.field"  # Add your custom field here
 }
 ```
+
+Note that some fields like `user.name` and `process.name` are already included in the default set. Always check the current contents of `DEFAULT_FIELDS` in `so_modules/config.py` before adding new fields to avoid duplication.
 
 ## Testing
 
