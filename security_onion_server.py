@@ -10,7 +10,7 @@ import mcp.types as types
 import asyncio
 import logging
 import typing # Need this for Optional
-from so_modules import api, config, event_query_tools, utility_tools, utils # Removed rule_tools import
+from so_modules import api, config, event_query_tools, utility_tools, utils, playbook_tools
 # Configure basic logging (console), setting level to WARNING to suppress DEBUG/INFO
 # This also configures the root logger initially.
 logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -100,6 +100,54 @@ async def query_events(
         limit=limit,
         groupby_field=groupby_field
     )
+
+
+@server.tool()
+async def execute_playbook(
+    alert_id: str,
+    alert_data: typing.Optional[dict] = None,
+    playbook_index: typing.Optional[int] = None
+) -> dict:
+    """
+    Execute playbook(s) for a given alert/detection to answer investigation questions.
+    
+    When an alert is triggered, playbooks provide guided questions to help investigate
+    the incident. This tool retrieves the playbook(s) for an alert and executes the
+    queries defined in each question, returning the results.
+    
+    Args:
+        alert_id: The alert/detection ID (event.id or rule.uuid)
+        alert_data: Optional alert event data for variable substitution. If not provided,
+                    the tool will attempt to fetch it.
+        playbook_index: Optional index to execute a specific playbook (0-based).
+                        If not provided, all playbooks for the alert are executed.
+    
+    Returns:
+        Dictionary containing:
+        - alert_id: The provided alert ID
+        - playbooks: List of executed playbooks, each containing:
+          - name: Playbook name
+          - description: Playbook description
+          - questions: List of questions with their results
+        - error: Error message if execution failed
+    
+    Example:
+        # Execute all playbooks for an alert
+        result = await execute_playbook("6F64990A-ACDA-40B6-AB71-134C073013B5")
+        
+        # Execute with known alert data
+        alert_data = {"source.ip": "10.0.0.1", "destination.ip": "192.168.1.1"}
+        result = await execute_playbook("alert-123", alert_data=alert_data)
+        
+        # Execute only the first playbook
+        result = await execute_playbook("alert-123", playbook_index=0)
+    """
+    return await playbook_tools.execute_playbook_impl(
+        alert_id=alert_id,
+        alert_data=alert_data,
+        playbook_index=playbook_index
+    )
+
 
 async def run():
     """Run the server if configuration is valid."""

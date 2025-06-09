@@ -226,3 +226,165 @@ def test_parse_datetime_string_unsupported_relative():
         utils.parse_datetime_string("6h") # parse_datetime_string requires leading '-' for relative
     with pytest.raises(ValueError, match="Invalid time string format: '7d'. Use relative"):
         utils.parse_datetime_string("7d")
+
+
+class TestParseRelativeTime:
+    """Test cases for parse_relative_time function."""
+    
+    def test_parse_relative_time_positive_hours(self):
+        """Test parsing positive hours."""
+        base_time = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        result = utils.parse_relative_time("+3h", base_time)
+        expected = datetime(2024, 1, 15, 15, 0, 0, tzinfo=timezone.utc)
+        assert result == expected.isoformat()
+    
+    def test_parse_relative_time_negative_hours(self):
+        """Test parsing negative hours."""
+        base_time = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        result = utils.parse_relative_time("-2h", base_time)
+        expected = datetime(2024, 1, 15, 10, 0, 0, tzinfo=timezone.utc)
+        assert result == expected.isoformat()
+    
+    def test_parse_relative_time_positive_days(self):
+        """Test parsing positive days."""
+        base_time = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        result = utils.parse_relative_time("+7d", base_time)
+        expected = datetime(2024, 1, 22, 12, 0, 0, tzinfo=timezone.utc)
+        assert result == expected.isoformat()
+    
+    def test_parse_relative_time_negative_days(self):
+        """Test parsing negative days."""
+        base_time = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        result = utils.parse_relative_time("-30d", base_time)
+        expected = datetime(2023, 12, 16, 12, 0, 0, tzinfo=timezone.utc)
+        assert result == expected.isoformat()
+    
+    def test_parse_relative_time_minutes(self):
+        """Test parsing minutes."""
+        base_time = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        result = utils.parse_relative_time("+45m", base_time)
+        expected = datetime(2024, 1, 15, 12, 45, 0, tzinfo=timezone.utc)
+        assert result == expected.isoformat()
+    
+    def test_parse_relative_time_no_sign_defaults_negative(self):
+        """Test that no sign defaults to negative (past)."""
+        base_time = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        result = utils.parse_relative_time("1h", base_time)
+        expected = datetime(2024, 1, 15, 11, 0, 0, tzinfo=timezone.utc)
+        assert result == expected.isoformat()
+    
+    def test_parse_relative_time_no_base_time(self):
+        """Test using current time when no base time provided."""
+        # Just verify it returns an ISO string
+        result = utils.parse_relative_time("+1h")
+        assert "T" in result
+        assert result.endswith("Z") or "+" in result
+    
+    def test_parse_relative_time_invalid_format(self):
+        """Test invalid formats raise ValueError."""
+        base_time = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        
+        with pytest.raises(ValueError, match="Invalid relative time format"):
+            utils.parse_relative_time("+3w", base_time)  # weeks not supported
+        
+        with pytest.raises(ValueError, match="Invalid relative time format"):
+            utils.parse_relative_time("3hours", base_time)
+
+
+class TestEscapeOqlValue:
+    """Test cases for escape_oql_value function."""
+    
+    def test_escape_simple_value(self):
+        """Test escaping simple values without special characters."""
+        assert utils.escape_oql_value("simple") == "simple"
+        assert utils.escape_oql_value("192.168.1.1") == "192.168.1.1"
+    
+    def test_escape_value_with_spaces(self):
+        """Test values with spaces get quoted."""
+        assert utils.escape_oql_value("hello world") == '"hello world"'
+        assert utils.escape_oql_value("multi word value") == '"multi word value"'
+    
+    def test_escape_special_characters(self):
+        """Test escaping special OQL characters."""
+        assert utils.escape_oql_value("test*") == "test\\*"
+        assert utils.escape_oql_value("test?") == "test\\?"
+        assert utils.escape_oql_value("test:value") == "test\\:value"
+        assert utils.escape_oql_value("test(value)") == "test\\(value\\)"
+        assert utils.escape_oql_value("test[value]") == "test\\[value\\]"
+        assert utils.escape_oql_value("test{value}") == "test\\{value\\}"
+    
+    def test_escape_quotes(self):
+        """Test escaping quotes."""
+        assert utils.escape_oql_value('test"value') == 'test\\"value'
+        assert utils.escape_oql_value('"quoted"') == '\\"quoted\\"'
+    
+    def test_escape_backslashes(self):
+        """Test escaping backslashes."""
+        # Path with spaces gets quoted
+        assert utils.escape_oql_value("C:\\path to\\file") == '"C\\:\\\\path to\\\\file"'
+        # Path without spaces doesn't get quoted
+        assert utils.escape_oql_value("C:\\path\\to\\file") == 'C\\:\\\\path\\\\to\\\\file'
+        assert utils.escape_oql_value("test\\value") == "test\\\\value"
+    
+    def test_escape_combined(self):
+        """Test escaping multiple special characters."""
+        assert utils.escape_oql_value("test: value*") == '"test\\: value\\*"'
+        assert utils.escape_oql_value('path\\to\\file with "quotes"') == '"path\\\\to\\\\file with \\"quotes\\""'
+
+
+class TestGetNestedField:
+    """Test cases for get_nested_field function."""
+    
+    def test_get_simple_field(self):
+        """Test getting a simple top-level field."""
+        data = {"field": "value"}
+        assert utils.get_nested_field(data, "field") == "value"
+    
+    def test_get_nested_field(self):
+        """Test getting a nested field."""
+        data = {
+            "source": {
+                "ip": "10.0.0.1",
+                "port": 8080
+            }
+        }
+        assert utils.get_nested_field(data, "source.ip") == "10.0.0.1"
+        assert utils.get_nested_field(data, "source.port") == 8080
+    
+    def test_get_deeply_nested_field(self):
+        """Test getting a deeply nested field."""
+        data = {
+            "level1": {
+                "level2": {
+                    "level3": {
+                        "value": "deep"
+                    }
+                }
+            }
+        }
+        assert utils.get_nested_field(data, "level1.level2.level3.value") == "deep"
+    
+    def test_get_missing_field(self):
+        """Test getting a field that doesn't exist."""
+        data = {"field": "value"}
+        assert utils.get_nested_field(data, "missing") is None
+        assert utils.get_nested_field(data, "field.missing") is None
+    
+    def test_get_field_empty_data(self):
+        """Test getting a field from empty or None data."""
+        assert utils.get_nested_field(None, "field") is None
+        assert utils.get_nested_field({}, "field") is None
+    
+    def test_get_field_empty_path(self):
+        """Test getting a field with empty path."""
+        data = {"field": "value"}
+        assert utils.get_nested_field(data, "") is None
+        assert utils.get_nested_field(data, None) is None
+    
+    def test_get_field_non_dict_intermediate(self):
+        """Test getting a field when intermediate value is not a dict."""
+        data = {
+            "field": "string_value"
+        }
+        # Trying to access field.subfield when field is a string
+        assert utils.get_nested_field(data, "field.subfield") is None

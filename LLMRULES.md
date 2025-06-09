@@ -98,3 +98,39 @@ destination.port:80 AND tags:conn | groupby network.protocol destination.port
 tags:alert | groupby event.module
 tags:conn | groupby source.ip destination.ip
 ```
+
+## Playbook Feature
+
+Security Onion MCP now includes a playbook execution feature for investigating alerts. When you have an alert ID:
+
+### Using execute_playbook Tool
+```
+# Execute all playbooks for an alert
+execute_playbook(alert_id="6F64990A-ACDA-40B6-AB71-134C073013B5")
+
+# Execute with known alert data to avoid lookup
+execute_playbook(
+    alert_id="alert-123",
+    alert_data={"source.ip": "10.0.0.1", "destination.ip": "192.168.1.1"}
+)
+
+# Execute only a specific playbook (0-based index)
+execute_playbook(alert_id="alert-123", playbook_index=0)
+```
+
+### Playbook Query Variables
+Playbook queries support variable substitution from alert data:
+- `{{field.name}}` format: `source.ip:{{source.ip}}`
+- `$field.name` format: `user.name:$user.name`
+
+### Time Ranges in Playbooks
+Playbooks can specify time ranges for queries:
+- `+/-3d`: 3 days before and after the alert
+- `-1h/+1h`: 1 hour before to 1 hour after
+- `-2h`: 2 hours before the alert time
+
+The playbook feature automatically:
+1. Fetches playbooks associated with the alert type
+2. Substitutes variables from the alert data into queries
+3. Executes queries with appropriate time ranges
+4. Returns structured results for analysis

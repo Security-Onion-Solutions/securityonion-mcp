@@ -200,6 +200,20 @@ To use these rules with Claude Desktop:
 3. **Use the project for all Security Onion queries:**
    Return to this project whenever you need to query Security Onion. The LLMRULES.md file will always be available in the project knowledge, so you don't need to upload it for each new conversation.
 
+## Playbook Feature
+
+The Security Onion MCP Server includes a playbook execution feature that helps investigate security alerts. When you have an alert:
+
+1. The server retrieves playbooks associated with that alert type
+2. Each playbook contains questions with queries to help investigate the incident
+3. The server executes these queries with variables from the alert substituted
+4. Results are returned in a structured format for analysis
+
+To use the playbook feature with the MCP tools:
+- Use `execute_playbook` with an alert ID to run all associated playbooks
+- Optionally provide alert data to avoid an extra lookup
+- Optionally specify a playbook index to run just one playbook
+
 ## Event Payload Filtering
 
 The Security Onion MCP Server filters event payloads to reduce context size when returning query results. This is important for:

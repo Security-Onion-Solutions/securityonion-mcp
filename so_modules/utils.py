@@ -123,3 +123,95 @@ def parse_datetime_string(time_str: str) -> datetime:
             return dt
         except ValueError:
             raise ValueError(f"Invalid time string format: '{time_str}'. Use relative ('-6h', '-5m', '-7d'), 'now', 'today', or absolute '{absolute_format}'.")
+
+
+def parse_relative_time(time_str: str, base_time: typing.Optional[datetime] = None) -> str:
+    """
+    Parse a relative time string and return an ISO formatted datetime string.
+    
+    Args:
+        time_str: Relative time like "+3h", "-1d", "+2m"
+        base_time: Base time to calculate from (defaults to now)
+        
+    Returns:
+        ISO formatted datetime string
+    """
+    if base_time is None:
+        base_time = datetime.now(timezone.utc)
+    
+    time_str = time_str.strip()
+    
+    # Handle positive/negative signs
+    if time_str.startswith('+'):
+        sign = 1
+        time_str = time_str[1:]
+    elif time_str.startswith('-'):
+        sign = -1
+        time_str = time_str[1:]
+    else:
+        sign = -1  # Default to past
+    
+    # Parse the time unit
+    if time_str.endswith('h'):
+        hours = int(time_str[:-1])
+        delta = timedelta(hours=hours * sign)
+    elif time_str.endswith('d'):
+        days = int(time_str[:-1])
+        delta = timedelta(days=days * sign)
+    elif time_str.endswith('m'):
+        minutes = int(time_str[:-1])
+        delta = timedelta(minutes=minutes * sign)
+    else:
+        raise ValueError(f"Invalid relative time format: {time_str}")
+    
+    result_time = base_time + delta
+    return result_time.isoformat()
+
+
+def escape_oql_value(value: str) -> str:
+    """
+    Escape special characters in OQL values.
+    
+    Args:
+        value: The value to escape
+        
+    Returns:
+        Escaped value safe for OQL queries
+    """
+    # Add backslashes before special characters
+    special_chars = ['\\', '"', '*', '?', ':', '(', ')', '[', ']', '{', '}']
+    escaped = value
+    for char in special_chars:
+        escaped = escaped.replace(char, f'\\{char}')
+    
+    # If value contains spaces, wrap in quotes
+    if ' ' in escaped:
+        escaped = f'"{escaped}"'
+    
+    return escaped
+
+
+def get_nested_field(data: typing.Dict[str, typing.Any], field_path: str) -> typing.Any:
+    """
+    Get a value from a nested dictionary using dot notation.
+    
+    Args:
+        data: The dictionary to search
+        field_path: Dot-separated path to the field (e.g., "source.ip")
+        
+    Returns:
+        The value at the field path, or None if not found
+    """
+    if not data or not field_path:
+        return None
+    
+    parts = field_path.split('.')
+    current = data
+    
+    for part in parts:
+        if isinstance(current, dict) and part in current:
+            current = current[part]
+        else:
+            return None
+    
+    return current
