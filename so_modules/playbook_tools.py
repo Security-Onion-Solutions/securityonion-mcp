@@ -95,7 +95,7 @@ def _parse_time_range(range_str: str, alert_timestamp: Optional[str] = None) -> 
         alert_timestamp: The timestamp of the alert (ISO format)
         
     Returns:
-        Tuple of (start_time, end_time) in ISO format
+        Tuple of (start_time, end_time) in Security Onion API format
     """
     if not range_str:
         # Default to +/- 1 hour if no range specified
@@ -113,24 +113,51 @@ def _parse_time_range(range_str: str, alert_timestamp: Optional[str] = None) -> 
     # Handle +/-Xd format (e.g., "+/-3d")
     if range_str.startswith("+/-"):
         duration = range_str[3:]
-        start_time = utils.parse_relative_time(f"-{duration}", base_time)
-        end_time = utils.parse_relative_time(f"+{duration}", base_time)
+        start_iso = utils.parse_relative_time(f"-{duration}", base_time)
+        end_iso = utils.parse_relative_time(f"+{duration}", base_time)
     # Handle -Xh/+Yh format (e.g., "-1h/+1h")
     elif "/" in range_str:
         parts = range_str.split("/")
         if len(parts) == 2:
-            start_time = utils.parse_relative_time(parts[0], base_time)
-            end_time = utils.parse_relative_time(parts[1], base_time)
+            start_iso = utils.parse_relative_time(parts[0], base_time)
+            end_iso = utils.parse_relative_time(parts[1], base_time)
         else:
             # Fallback to +/- 1 hour
-            start_time = utils.parse_relative_time("-1h", base_time)
-            end_time = utils.parse_relative_time("+1h", base_time)
+            start_iso = utils.parse_relative_time("-1h", base_time)
+            end_iso = utils.parse_relative_time("+1h", base_time)
     else:
         # Try to parse as a single relative time
-        start_time = utils.parse_relative_time(range_str, base_time)
-        end_time = base_time.isoformat()
+        start_iso = utils.parse_relative_time(range_str, base_time)
+        end_iso = base_time.isoformat()
+    
+    # Convert ISO format to Security Onion API format
+    start_time = _convert_iso_to_api_format(start_iso)
+    end_time = _convert_iso_to_api_format(end_iso)
     
     return start_time, end_time
+
+
+def _convert_iso_to_api_format(iso_timestamp: str) -> str:
+    """
+    Convert ISO 8601 timestamp to Security Onion API format.
+    
+    Args:
+        iso_timestamp: ISO 8601 format timestamp (e.g., "2025-06-09T08:00:00+00:00")
+        
+    Returns:
+        Security Onion API format (e.g., "2025/06/09 08:00:00 AM")
+    """
+    try:
+        # Parse the ISO timestamp
+        dt = datetime.fromisoformat(iso_timestamp.replace('Z', '+00:00'))
+        
+        # Convert to the required format
+        # Format: YYYY/MM/DD HH:MM:SS AM/PM
+        return dt.strftime("%Y/%m/%d %I:%M:%S %p")
+    except Exception as e:
+        logger.warning(f"Failed to convert timestamp {iso_timestamp}: {e}")
+        # Return a relative time as fallback
+        return "-1h"
 
 
 async def execute_playbook_question(

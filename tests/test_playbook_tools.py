@@ -115,9 +115,9 @@ class TestPlaybookTools:
         
         start, end = playbook_tools._parse_time_range("+/-3d", alert_timestamp)
         
-        # Should be 3 days before and 3 days after
-        assert "2024-01-12" in start
-        assert "2024-01-18" in end
+        # Should be 3 days before and 3 days after in API format
+        assert start == "2024/01/12 12:00:00 PM"
+        assert end == "2024/01/18 12:00:00 PM"
     
     def test_parse_time_range_split_format(self):
         """Test parsing -Xh/+Yh format time ranges."""
@@ -126,9 +126,9 @@ class TestPlaybookTools:
         
         start, end = playbook_tools._parse_time_range("-2h/+1h", alert_timestamp)
         
-        # Should be 2 hours before and 1 hour after
-        assert "2024-01-15T10:00:00" in start
-        assert "2024-01-15T13:00:00" in end
+        # Should be 2 hours before and 1 hour after in API format
+        assert start == "2024/01/15 10:00:00 AM"
+        assert end == "2024/01/15 01:00:00 PM"
     
     def test_parse_time_range_default(self):
         """Test default time range when none specified."""
@@ -137,18 +137,37 @@ class TestPlaybookTools:
         
         start, end = playbook_tools._parse_time_range("", alert_timestamp)
         
-        # Default should be +/- 1 hour
-        assert "2024-01-15T11:00:00" in start
-        assert "2024-01-15T13:00:00" in end
+        # Default should be +/- 1 hour in API format
+        assert start == "2024/01/15 11:00:00 AM"
+        assert end == "2024/01/15 01:00:00 PM"
     
     def test_parse_time_range_no_alert_timestamp(self):
         """Test time range parsing when no alert timestamp provided."""
         # Should use current time
         start, end = playbook_tools._parse_time_range("+/-1d", None)
         
-        # Just verify it returns ISO format strings
-        assert "T" in start
-        assert "T" in end
+        # Just verify it returns API format strings
+        assert "/" in start  # Should have date separators
+        assert "/" in end
+        assert ("AM" in start or "PM" in start)
+        assert ("AM" in end or "PM" in end)
+    
+    def test_convert_iso_to_api_format(self):
+        """Test ISO to API format conversion."""
+        # Test with timezone
+        iso_time = "2024-01-15T14:30:00+00:00"
+        result = playbook_tools._convert_iso_to_api_format(iso_time)
+        assert result == "2024/01/15 02:30:00 PM"
+        
+        # Test with Z timezone
+        iso_time = "2024-01-15T08:00:00Z"
+        result = playbook_tools._convert_iso_to_api_format(iso_time)
+        assert result == "2024/01/15 08:00:00 AM"
+        
+        # Test invalid format falls back to relative time
+        iso_time = "invalid-timestamp"
+        result = playbook_tools._convert_iso_to_api_format(iso_time)
+        assert result == "-1h"
     
     @pytest.mark.asyncio
     async def test_execute_playbook_question_success(self):

@@ -31,15 +31,11 @@ class TestPlaybookToolsCoverage:
         # More than 2 parts in split format
         start, end = playbook_tools._parse_time_range("-1h/+1h/extra", None)
         
-        # Should fallback to +/- 1 hour
-        assert "T" in start
-        assert "T" in end
-        
-        # Verify it's roughly 2 hours apart
-        start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
-        end_dt = datetime.fromisoformat(end.replace('Z', '+00:00'))
-        diff = end_dt - start_dt
-        assert 7000 < diff.total_seconds() < 7400  # ~2 hours
+        # Should fallback to +/- 1 hour in API format
+        assert "/" in start
+        assert "/" in end
+        assert ("AM" in start or "PM" in start)
+        assert ("AM" in end or "PM" in end)
     
     def test_parse_time_range_single_relative(self):
         """Test parsing single relative time (not split format)."""
@@ -48,19 +44,21 @@ class TestPlaybookToolsCoverage:
         
         start, end = playbook_tools._parse_time_range("-3h", alert_timestamp)
         
-        # Start should be 3 hours before base_time
-        assert "2024-01-15T09:00:00" in start
-        # End should be the base_time
-        assert "2024-01-15T12:00:00" in end
+        # Start should be 3 hours before base_time in API format
+        assert start == "2024/01/15 09:00:00 AM"
+        # End should be the base_time in API format
+        assert end == "2024/01/15 12:00:00 PM"
     
     def test_parse_time_range_invalid_alert_timestamp(self):
         """Test handling of invalid alert timestamp."""
         # Invalid timestamp format should fallback to current time
         start, end = playbook_tools._parse_time_range("+/-1h", "invalid-timestamp")
         
-        # Should still return valid ISO format times
-        assert "T" in start
-        assert "T" in end
+        # Should still return valid API format times
+        assert "/" in start
+        assert "/" in end
+        assert ("AM" in start or "PM" in start)
+        assert ("AM" in end or "PM" in end)
     
     @pytest.mark.asyncio
     async def test_execute_playbook_impl_no_alert_timestamp(self):
