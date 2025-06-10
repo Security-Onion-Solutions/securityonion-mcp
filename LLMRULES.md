@@ -121,37 +121,28 @@ tags:conn | groupby source.ip destination.ip
 
 ## Playbook Feature
 
-Security Onion MCP now includes a playbook execution feature for investigating alerts. When you have an alert ID:
+Security Onion MCP includes a playbook feature for guided investigation of alerts. When you have an alert ID:
 
-### Using execute_playbook Tool
+### Using get_playbook_questions Tool
 ```
-# Execute all playbooks for an alert
-execute_playbook(alert_id="6F64990A-ACDA-40B6-AB71-134C073013B5")
+# Get investigation questions for an alert
+get_playbook_questions(alert_id="6F64990A-ACDA-40B6-AB71-134C073013B5")
 
-# Execute with known alert data to avoid lookup
-execute_playbook(
-    alert_id="alert-123",
-    alert_data={"source.ip": "10.0.0.1", "destination.ip": "192.168.1.1"}
-)
-
-# Execute only a specific playbook (0-based index)
-execute_playbook(alert_id="alert-123", playbook_index=0)
+# Get questions from only a specific playbook (0-based index)
+get_playbook_questions(alert_id="alert-123", playbook_index=0)
 ```
 
-### Playbook Query Variables
-Playbook queries support variable substitution from alert data:
-- `{{field.name}}` format: `source.ip:{{source.ip}}`
-- `{field.name}` format: `dns.query.name:{dns.query_name}`
-- `$field.name` format: `user.name:$user.name`
+### What the Tool Returns
+The tool returns investigation questions from playbooks associated with the alert:
+- **question**: The investigation question to answer
+- **context**: Why this question is important for the investigation
+- **answer_sources**: Where to find relevant data (e.g., network logs, firewall logs)
+- **suggested_query**: A template query that may contain variables
+- **time_range**: Suggested time range for the investigation (e.g., "+/-1h")
 
-### Time Ranges in Playbooks
-Playbooks can specify time ranges for queries:
-- `+/-3d`: 3 days before and after the alert
-- `-1h/+1h`: 1 hour before to 1 hour after
-- `-2h`: 2 hours before the alert time
-
-The playbook feature automatically:
-1. Fetches playbooks associated with the alert type
-2. Substitutes variables from the alert data into queries
-3. Executes queries with appropriate time ranges
-4. Returns structured results for analysis
+### Using Playbook Questions
+After retrieving the questions:
+1. Review the questions and their context
+2. Build appropriate OQL queries based on the specific alert data
+3. Consider the suggested time ranges and data sources
+4. Execute queries using `query_events` to answer the investigation questions
