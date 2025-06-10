@@ -103,48 +103,47 @@ async def query_events(
 
 
 @server.tool()
-async def execute_playbook(
+async def get_playbook_questions(
     alert_id: str,
-    alert_data: typing.Optional[dict] = None,
     playbook_index: typing.Optional[int] = None
 ) -> dict:
     """
-    Execute playbook(s) for a given alert/detection to answer investigation questions.
+    Get playbook questions for a given alert/detection to guide investigation.
     
     When an alert is triggered, playbooks provide guided questions to help investigate
-    the incident. This tool retrieves the playbook(s) for an alert and executes the
-    queries defined in each question, returning the results.
+    the incident. This tool retrieves the playbook questions without executing queries,
+    allowing you to build appropriate queries based on the questions and available data.
     
     Args:
         alert_id: The alert/detection ID (event.id or rule.uuid)
-        alert_data: Optional alert event data for variable substitution. If not provided,
-                    the tool will attempt to fetch it.
-        playbook_index: Optional index to execute a specific playbook (0-based).
-                        If not provided, all playbooks for the alert are executed.
+        playbook_index: Optional index to get questions from a specific playbook (0-based).
+                        If not provided, questions from all playbooks are returned.
     
     Returns:
         Dictionary containing:
         - alert_id: The provided alert ID
-        - playbooks: List of executed playbooks, each containing:
+        - playbooks: List of playbooks, each containing:
           - name: Playbook name
           - description: Playbook description
-          - questions: List of questions with their results
-        - error: Error message if execution failed
+          - questions: List of questions with:
+            - question: The investigation question
+            - context: Why this question is important
+            - answer_sources: Where to find answers
+            - suggested_query: A template query (may contain variables)
+            - time_range: Suggested time range for the query
+        - error: Error message if retrieval failed
     
     Example:
-        # Execute all playbooks for an alert
-        result = await execute_playbook("6F64990A-ACDA-40B6-AB71-134C073013B5")
+        # Get all playbook questions for an alert
+        questions = await get_playbook_questions("6F64990A-ACDA-40B6-AB71-134C073013B5")
         
-        # Execute with known alert data
-        alert_data = {"source.ip": "10.0.0.1", "destination.ip": "192.168.1.1"}
-        result = await execute_playbook("alert-123", alert_data=alert_data)
+        # Get questions from only the first playbook
+        questions = await get_playbook_questions("alert-123", playbook_index=0)
         
-        # Execute only the first playbook
-        result = await execute_playbook("alert-123", playbook_index=0)
+        # Then use the questions to build appropriate OQL queries
     """
-    return await playbook_tools.execute_playbook_impl(
+    return await playbook_tools.get_playbook_questions_impl(
         alert_id=alert_id,
-        alert_data=alert_data,
         playbook_index=playbook_index
     )
 
