@@ -73,6 +73,26 @@ Security Onion uses tags to categorize data by type. Using tags in queries is of
 | `ics` | Industrial Control Systems data | Various ICS event.dataset fields |
 | `bsap_ip_header` | BSAP/IP protocol header data | `event.dataset:bsap_ip_header` |
 
+## Time Format Requirements for query_events
+
+**IMPORTANT**: The `query_events` tool requires specific time formats:
+- **Relative times**: `-6h`, `-5m`, `-7d`, `-30d` (negative values for past times)
+- **Keywords**: `now`, `today`
+- **Absolute format**: `YYYY/MM/DD HH:MM:SS AM/PM` (e.g., `2025/06/09 08:00:00 AM`)
+
+**DO NOT use ISO 8601 format** (e.g., `2025-06-09T08:00:00`) - this will cause an error!
+
+### Examples:
+```python
+# CORRECT time formats:
+query_events(oql_query="tags:alert", start_time="-24h", end_time="now")
+query_events(oql_query="tags:conn", start_time="-7d", end_time="-1d")
+query_events(oql_query="source.ip:10.0.0.1", start_time="2025/06/09 08:00:00 AM", end_time="2025/06/09 10:00:00 AM")
+
+# INCORRECT - DO NOT USE:
+query_events(oql_query="tags:alert", start_time="2025-06-09T08:00:00", end_time="2025-06-09T10:00:00")
+```
+
 ## OQL Segments (Right of pipe |)
 
 ### sortby
