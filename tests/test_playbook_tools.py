@@ -36,7 +36,7 @@ class TestPlaybookTools:
             result = await playbook_tools.get_playbooks_for_detection("test-detection-id")
             
             assert result == mock_playbooks
-            mock_api.assert_called_once_with("/connect/playbook/detection/test-detection-id", method="GET")
+            mock_api.assert_called_once_with("/connect/playbook/detection/test-detection-id", params={})
     
     @pytest.mark.asyncio
     async def test_get_playbooks_for_detection_failure(self):

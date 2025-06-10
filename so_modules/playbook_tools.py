@@ -33,7 +33,8 @@ async def get_playbooks_for_detection(detection_id: str) -> List[Dict[str, Any]]
     endpoint = f"/connect/playbook/detection/{detection_id}"
     
     try:
-        response = await api.make_so_api_request(endpoint, method="GET")
+        # make_so_api_request doesn't take a method parameter, it's always GET
+        response = await api.make_so_api_request(endpoint, params={})
         return response if isinstance(response, list) else []
     except Exception as e:
         logger.error(f"Failed to fetch playbooks for detection {detection_id}: {e}")
