@@ -73,6 +73,31 @@ class TestPlaybookTools:
         
         assert result == "user.name:john.doe AND process.name:malware.exe"
     
+    def test_substitute_variables_single_braces(self):
+        """Test variable substitution with {field} format."""
+        query = "dns.query.name:{dns.query_name} AND dns.resolved_ip:{network.public_ip}"
+        alert_data = {
+            "dns": {"query_name": "malicious.com"},
+            "network": {"public_ip": "1.2.3.4"}
+        }
+        
+        result = playbook_tools._substitute_variables(query, alert_data)
+        
+        assert result == "dns.query.name:malicious.com AND dns.resolved_ip:1.2.3.4"
+    
+    def test_substitute_variables_mixed_formats(self):
+        """Test variable substitution with mixed formats."""
+        query = "field1:{{double.brace}} AND field2:{single.brace} AND field3:$dollar.sign"
+        alert_data = {
+            "double": {"brace": "value1"},
+            "single": {"brace": "value2"},
+            "dollar": {"sign": "value3"}
+        }
+        
+        result = playbook_tools._substitute_variables(query, alert_data)
+        
+        assert result == "field1:value1 AND field2:value2 AND field3:value3"
+    
     def test_substitute_variables_with_spaces(self):
         """Test variable substitution with values containing spaces."""
         query = "message:{{alert.message}}"

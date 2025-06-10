@@ -141,6 +141,7 @@ execute_playbook(alert_id="alert-123", playbook_index=0)
 ### Playbook Query Variables
 Playbook queries support variable substitution from alert data:
 - `{{field.name}}` format: `source.ip:{{source.ip}}`
+- `{field.name}` format: `dns.query.name:{dns.query_name}`
 - `$field.name` format: `user.name:$user.name`
 
 ### Time Ranges in Playbooks

@@ -44,7 +44,7 @@ async def get_playbooks_for_detection(detection_id: str) -> List[Dict[str, Any]]
 def _substitute_variables(query: str, alert_data: Dict[str, Any]) -> str:
     """
     Replace variables in a Sigma query with values from the alert.
-    Variables are in the format {{field.name}} or $field.name
+    Variables are in the format {{field.name}}, {field.name}, or $field.name
     
     Args:
         query: The Sigma query with variables
@@ -53,7 +53,7 @@ def _substitute_variables(query: str, alert_data: Dict[str, Any]) -> str:
     Returns:
         Query with variables replaced
     """
-    # Handle {{field.name}} format
+    # Handle {{field.name}} format (double braces)
     pattern = r'\{\{([^}]+)\}\}'
     
     def replace_match(match):
@@ -67,6 +67,22 @@ def _substitute_variables(query: str, alert_data: Dict[str, Any]) -> str:
         return utils.escape_oql_value(str(value))
     
     query = re.sub(pattern, replace_match, query)
+    
+    # Handle {field.name} format (single braces)
+    # Use negative lookbehind/lookahead to avoid matching already processed {{}}
+    pattern = r'(?<!\{)\{([^{}]+)\}(?!\})'
+    
+    def replace_single_brace_match(match):
+        field_path = match.group(1).strip()
+        value = utils.get_nested_field(alert_data, field_path)
+        if value is None:
+            logger.warning(f"Field {field_path} not found in alert data")
+            return match.group(0)  # Keep original if not found
+        
+        # Escape the value for OQL
+        return utils.escape_oql_value(str(value))
+    
+    query = re.sub(pattern, replace_single_brace_match, query)
     
     # Handle $field.name format
     pattern = r'\$([a-zA-Z0-9_.]+)'
