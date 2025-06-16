@@ -73,7 +73,7 @@ The server uses the following environment variables:
         "ping",
         "query_events"
       ],
-      "disabled": true
+      "disabled": false
     }
   }
 }
