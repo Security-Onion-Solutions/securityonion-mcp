@@ -125,7 +125,7 @@ Security Onion MCP includes a playbook feature for guided investigation of alert
 
 ### Using get_playbook_questions Tool
 ```
-# Get investigation questions for an alert
+# Get investigation questions for an alert. The alert id would be the rule.uuid from the actual alert.
 get_playbook_questions(alert_id="6F64990A-ACDA-40B6-AB71-134C073013B5")
 
 # Get questions from only a specific playbook (0-based index)

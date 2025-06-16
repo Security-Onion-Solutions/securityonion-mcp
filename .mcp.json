@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "securityonion": {
+      "command": "/home/mreeves/securityonion-mcp/venv/bin/python",
+      "args": ["/home/mreeves/securityonion-mcp/security_onion_server.py"],
+      "env": {
+        "SO_CLIENT_ID": "socl_claude",
+        "SO_CLIENT_SECRET": "G9vxSDpPr7GTzfg7neiS",
+        "SO_API_ENDPOINT": "https://somn24",
+        "SO_API_VERIFY_SSL": "false",
+        "SO_ENABLE_FILE_LOGGING": "true"
+      }
+    }
+  }
+}
+
