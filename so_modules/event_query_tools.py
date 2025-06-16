@@ -44,12 +44,6 @@ async def query_events_impl(
             log.error(f"Invalid characters detected in groupby_field: {groupby_field}")
             raise ValueError(f"Invalid characters in groupby_field. Only unicode letters, numbers, underscore, period, and hyphen are allowed.")
 
-    # Basic validation for oql_query (balanced quotes)
-    if oql_query.count("'") % 2 != 0 or oql_query.count('"') % 2 != 0:
-        log.error(f"Unbalanced quotes detected in oql_query: {oql_query}")
-        raise ValueError("Unbalanced quotes in oql_query.")
-    # --- End Input Validation ---
-
     # Ensure all 'and' operators are uppercase
     oql_query = _capitalize_standalone_and(oql_query)
     

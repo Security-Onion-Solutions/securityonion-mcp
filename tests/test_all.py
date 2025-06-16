@@ -443,20 +443,6 @@ class TestEventQueryTools:
         # No exception should be raised
 
     @pytest.mark.asyncio
-    async def test_query_events_impl_unbalanced_quotes(self):
-        with pytest.raises(ValueError, match="Unbalanced quotes"):
-            await event_query_tools.query_events_impl(oql_query='rule.name:"Test')
-
-    @pytest.mark.asyncio
-    async def test_query_events_impl_escaped_double_quotes_fail(self):
-        """
-        Verify that a query with an escaped double quote inside a double-quoted string fails validation.
-        The current logic of just counting quotes should catch this.
-        """
-        with pytest.raises(ValueError, match="Unbalanced quotes"):
-            await event_query_tools.query_events_impl(oql_query='foo: "Mike \\"Bruh and Amanda"')
-
-    @pytest.mark.asyncio
     async def test_query_events_impl_value_error(self):
         with patch('so_modules.utils.build_api_time_range', side_effect=ValueError("Invalid time")):
             result = await event_query_tools.query_events_impl(oql_query='rule.name:"Test"', start_time="invalid")
