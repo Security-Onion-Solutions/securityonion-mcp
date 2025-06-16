@@ -23,6 +23,7 @@ def mock_config(mocker):
     mocker.patch.object(config, 'SO_CLIENT_SECRET', 'test_client_secret')
     mocker.patch.object(config, 'SO_API_ENDPOINT', 'http://test.so.api')
     mocker.patch.object(config, 'SO_API_VERIFY_SSL', False)
+    mocker.patch.object(config, 'SO_CA_CERT', None) # Default to None
     # Mock check_config to prevent it from actually raising errors during tests
     mocker.patch.object(config, 'check_config')
 
@@ -51,6 +52,20 @@ async def test_get_so_token_success(mocker):
     assert call_kwargs['auth'] == (config.SO_CLIENT_ID, config.SO_CLIENT_SECRET)
     assert call_kwargs['data'] == {"grant_type": "client_credentials"}
     assert call_kwargs['verify'] is False
+
+
+async def test_get_so_token_with_ca_cert(mocker):
+    """Test that get_so_token uses the CA cert path when provided."""
+    mocker.patch.object(config, 'SO_CA_CERT', '/path/to/custom.crt')
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"access_token": "fake_token_123"}
+    mock_async_post = AsyncMock(return_value=mock_response)
+    mocker.patch('asyncio.to_thread', mock_async_post)
+
+    await api.get_so_token()
+
+    _ , call_kwargs = mock_async_post.call_args
+    assert call_kwargs['verify'] == '/path/to/custom.crt'
 
 
 async def test_get_so_token_request_exception(mocker):
@@ -163,6 +178,20 @@ async def test_make_so_api_request_success(mocker, mock_get_token):
     }
     assert call_kwargs['params'] == expected_params
     assert call_kwargs['verify'] is False
+
+
+async def test_make_so_api_request_with_ca_cert(mocker, mock_get_token):
+    """Test that make_so_api_request uses the CA cert path when provided."""
+    mocker.patch.object(config, 'SO_CA_CERT', '/path/to/another.crt')
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"data": "success"}
+    mock_async_get = AsyncMock(return_value=mock_response)
+    mocker.patch('asyncio.to_thread', mock_async_get)
+
+    await api.make_so_api_request("/api/test", {})
+
+    _ , call_kwargs = mock_async_get.call_args
+    assert call_kwargs['verify'] == '/path/to/another.crt'
 
 
 async def test_make_so_api_request_request_exception(mocker, mock_get_token):

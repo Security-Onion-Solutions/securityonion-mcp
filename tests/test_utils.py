@@ -9,26 +9,29 @@ from unittest.mock import patch
 
 import so_modules.utils as utils
 
-# --- Tests for escape_oql_string ---
+# --- Tests for escape_oql_value ---
 
-def test_escape_oql_string_no_quotes():
+def test_escape_oql_value_no_quotes():
     """Test escaping a string with no single quotes."""
-    assert utils.escape_oql_string("hello world") == "hello world"
+    assert utils.escape_oql_value("hello world") == "'hello world'"
 
-def test_escape_oql_string_with_quotes():
+def test_escape_oql_value_with_quotes():
     """Test escaping a string containing single quotes."""
-    assert utils.escape_oql_string("it's a test") == "it''s a test"
+    assert utils.escape_oql_value("it's a test") == "'it''s a test'"
 
-def test_escape_oql_string_empty():
+def test_escape_oql_value_empty():
     """Test escaping an empty string."""
-    assert utils.escape_oql_string("") == ""
+    assert utils.escape_oql_value("") == ""
 
-def test_escape_oql_string_non_string():
+def test_escape_oql_value_non_string():
     """Test escaping non-string types (should be converted to string)."""
-    assert utils.escape_oql_string(123) == "123"
-    assert utils.escape_oql_string(None) == "None" # Note: str(None) is 'None'
-    assert utils.escape_oql_string(["a", "b'c"]) == "['a', 'b''c']" # str representation of list
+    assert utils.escape_oql_value(123) == "123"
+    assert utils.escape_oql_value(None) == "None"
+    assert utils.escape_oql_value(["a", "b'c"]) == "[a, 'b''c']"
 
+def test_escape_oql_value_with_pre_escaped_quote():
+    """Test escaping a string with a pre-existing backslash-escaped single quote."""
+    assert utils.escape_oql_value("Mike\\'s House") == "'Mike''s House'"
 # --- Tests for filter_event_payload ---
 
 def test_filter_event_payload_basic():
@@ -301,35 +304,35 @@ class TestEscapeOqlValue:
     
     def test_escape_value_with_spaces(self):
         """Test values with spaces get quoted."""
-        assert utils.escape_oql_value("hello world") == '"hello world"'
-        assert utils.escape_oql_value("multi word value") == '"multi word value"'
+        assert utils.escape_oql_value("hello world") == "'hello world'"
+        assert utils.escape_oql_value("multi word value") == "'multi word value'"
     
     def test_escape_special_characters(self):
         """Test escaping special OQL characters."""
-        assert utils.escape_oql_value("test*") == "test\\*"
-        assert utils.escape_oql_value("test?") == "test\\?"
-        assert utils.escape_oql_value("test:value") == "test\\:value"
-        assert utils.escape_oql_value("test(value)") == "test\\(value\\)"
-        assert utils.escape_oql_value("test[value]") == "test\\[value\\]"
-        assert utils.escape_oql_value("test{value}") == "test\\{value\\}"
+        assert utils.escape_oql_value("test*") == "'test*'"
+        assert utils.escape_oql_value("test?") == "'test?'"
+        assert utils.escape_oql_value("test:value") == "'test:value'"
+        assert utils.escape_oql_value("test(value)") == "'test(value)'"
+        assert utils.escape_oql_value("test[value]") == "'test[value]'"
+        assert utils.escape_oql_value("test{value}") == "'test{value}'"
     
     def test_escape_quotes(self):
         """Test escaping quotes."""
-        assert utils.escape_oql_value('test"value') == 'test\\"value'
-        assert utils.escape_oql_value('"quoted"') == '\\"quoted\\"'
+        assert utils.escape_oql_value('test"value') == '\'test"value\''
+        assert utils.escape_oql_value('"quoted"') == '\'"quoted"\''
     
     def test_escape_backslashes(self):
         """Test escaping backslashes."""
         # Path with spaces gets quoted
-        assert utils.escape_oql_value("C:\\path to\\file") == '"C\\:\\\\path to\\\\file"'
-        # Path without spaces doesn't get quoted
-        assert utils.escape_oql_value("C:\\path\\to\\file") == 'C\\:\\\\path\\\\to\\\\file'
-        assert utils.escape_oql_value("test\\value") == "test\\\\value"
+        assert utils.escape_oql_value("C:\\path to\\file") == "'C:\\path to\\file'"
+        # Path without spaces also gets quoted because of backslash
+        assert utils.escape_oql_value("C:\\path\\to\\file") == "'C:\\path\\to\\file'"
+        assert utils.escape_oql_value("test\\value") == "'test\\value'"
     
     def test_escape_combined(self):
         """Test escaping multiple special characters."""
-        assert utils.escape_oql_value("test: value*") == '"test\\: value\\*"'
-        assert utils.escape_oql_value('path\\to\\file with "quotes"') == '"path\\\\to\\\\file with \\"quotes\\""'
+        assert utils.escape_oql_value("test: value*") == "'test: value*'"
+        assert utils.escape_oql_value('path\\to\\file with "quotes"') == '\'path\\to\\file with "quotes"\''
 
 
 class TestGetNestedField:
@@ -388,3 +391,60 @@ class TestGetNestedField:
         }
         # Trying to access field.subfield when field is a string
         assert utils.get_nested_field(data, "field.subfield") is None
+def test_escape_oql_value_list():
+    """Test escaping a list of values."""
+    # Test with a simple list
+    assert utils.escape_oql_value(["a", "b"]) == "[a, b]"
+
+    # Test with a list containing quotes
+    assert utils.escape_oql_value(["a", "b's", "c"]) == "[a, 'b''s', c]"
+
+    # Test with an empty list
+    assert utils.escape_oql_value([]) == "[]"
+
+def test_escape_oql_value_nested_list():
+    """Test escaping a nested list."""
+    nested_list = ["a", ["b", "c"]]
+    expected = "[a, [b, c]]"
+    assert utils.escape_oql_value(nested_list) == expected
+
+# --- Additional Tests for parse_datetime_string ---
+
+# Use a fixed datetime for predictable results
+MOCK_NOW = datetime(2024, 5, 15, 10, 30, 0, tzinfo=timezone.utc)
+
+@patch('so_modules.utils.datetime')
+def test_parse_datetime_string_relative_minutes(mock_dt):
+    """Test parsing relative minutes like '-30m'."""
+    mock_dt.now.return_value = MOCK_NOW
+    mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
+    
+    # Test with minutes
+    expected_dt = MOCK_NOW - timedelta(minutes=30)
+    assert utils.parse_datetime_string("-30m") == expected_dt
+    assert utils.parse_datetime_string(" -30m ") == expected_dt
+    
+    # Test with invalid minutes format
+    with pytest.raises(ValueError, match="Invalid relative minutes format"):
+        utils.parse_datetime_string("-m")
+
+# Add a separate test for invalid time string format
+@patch('so_modules.utils.datetime')
+def test_parse_datetime_string_invalid_format(mock_dt):
+    """Test parsing invalid time string format."""
+    mock_dt.now.return_value = MOCK_NOW
+    mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
+    
+    # Mock datetime.strptime to raise ValueError
+    mock_dt.strptime.side_effect = ValueError("Invalid time string format")
+    
+    with pytest.raises(ValueError):
+        utils.parse_datetime_string("not_a_valid_time")
+    
+    # Test with negative value after '-' sign
+    with pytest.raises(ValueError, match="Invalid relative minutes format"):
+        utils.parse_datetime_string("--30m")
+    
+    # Test with non-integer value
+    with pytest.raises(ValueError, match="Invalid relative minutes format"):
+        utils.parse_datetime_string("-xm")

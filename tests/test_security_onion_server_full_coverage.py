@@ -5,6 +5,8 @@
 
 import pytest
 import pytest_asyncio
+from unittest.mock import AsyncMock
+from unittest.mock import patch
 import os
 import importlib
 import logging
@@ -216,3 +218,72 @@ async def test_run_with_valid_config(mock_env_vars):
         # Restore the original methods
         security_onion_server.check_configuration = original_check_configuration
         security_onion_server.server.run_stdio_async = original_run_stdio_async
+@pytest.mark.asyncio
+async def test_get_playbook_questions_tool():
+    """Test the get_playbook_questions MCP tool function directly."""
+    # Import the function after environment is set up
+    from security_onion_server import get_playbook_questions
+    
+    # Mock the implementation
+    with patch('so_modules.playbook_tools.get_playbook_questions_impl', new_callable=AsyncMock) as mock_impl:
+        mock_impl.return_value = {
+            "alert_id": "test-123",
+            "playbooks": [
+                {
+                    "name": "Test Playbook",
+                    "description": "Test description",
+                    "questions": [
+                        {
+                            "question": "What is the source IP?",
+                            "context": "Identify the source",
+                            "answer_sources": ["network logs"],
+                            "suggested_query": "source.ip:*",
+                            "time_range": "+/-1h"
+                        }
+                    ]
+                }
+            ]
+        }
+        
+        # Test with all parameters
+        result = await get_playbook_questions(
+            alert_id="test-123",
+            playbook_index=0
+        )
+        
+        # Verify the result
+        assert result["alert_id"] == "test-123"
+        assert len(result["playbooks"]) == 1
+        assert result["playbooks"][0]["name"] == "Test Playbook"
+        
+        # Verify the implementation was called correctly
+        mock_impl.assert_called_once_with(
+            alert_id="test-123",
+            playbook_index=0
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_playbook_questions_tool_minimal():
+    """Test the get_playbook_questions MCP tool with minimal parameters."""
+    from security_onion_server import get_playbook_questions
+    
+    with patch('so_modules.playbook_tools.get_playbook_questions_impl', new_callable=AsyncMock) as mock_impl:
+        mock_impl.return_value = {
+            "alert_id": "test-456",
+            "error": "No playbooks found for this detection",
+            "playbooks": []
+        }
+        
+        # Test with only required parameter
+        result = await get_playbook_questions(alert_id="test-456")
+        
+        # Verify
+        assert result["alert_id"] == "test-456"
+        assert result["error"] == "No playbooks found for this detection"
+        
+        # Should be called with None for optional parameters
+        mock_impl.assert_called_once_with(
+            alert_id="test-456",
+            playbook_index=None
+        )

@@ -47,10 +47,9 @@ server = FastMCP("Security Onion MCP")
 def check_configuration():
     """Check if the required configuration is set."""
     try:
-        config.check_config()
+        utils.validate_configuration()
         return True
-    except ValueError as e:
-        log.critical(f"Configuration error: {e}")
+    except ValueError:
         return False
 
 
