@@ -38,9 +38,6 @@ async def query_events_impl(
         A list of event dictionaries matching the query with filtered payloads
     """
     # --- Input Validation ---
-    # Ensure all 'and' operators are uppercase
-    oql_query = _capitalize_standalone_and(oql_query)
-    
     # Initialize parameters dictionary
     params = {"eventLimit": str(limit)}
     
@@ -160,17 +157,3 @@ def _process_events_response(data: dict) -> list[dict]:
         raise
 
 
-def _capitalize_standalone_and(query: str) -> str:
-    """
-    Capitalizes 'and' when it's a standalone word, ignoring 'and' inside quotes.
-    """
-    # Split the query by quoted strings, keeping the delimiters
-    parts = re.split(r'(".*?"|\'.*?\')', query)
-    
-    # Process each part: capitalize 'and' in non-quoted parts
-    for i in range(len(parts)):
-        # Non-quoted parts are at even indices
-        if i % 2 == 0:
-            parts[i] = re.sub(r'\band\b', 'AND', parts[i], flags=re.IGNORECASE)
-            
-    return "".join(parts)

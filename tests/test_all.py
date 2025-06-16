@@ -424,23 +424,6 @@ class TestEventQueryTools:
         result = await event_query_tools.query_events_impl(oql_query='rule.name:"Test"')
         assert "error" in result[0]
 
-    def test_capitalize_standalone_and(self):
-        assert event_query_tools._capitalize_standalone_and('field: "a and b" and c') == 'field: "a and b" AND c'
-        assert event_query_tools._capitalize_standalone_and('field: "a AND b" AND c') == 'field: "a AND b" AND c'
-
-    def test_capitalize_standalone_and_advanced(self):
-        # Test case from the issue description
-        assert event_query_tools._capitalize_standalone_and('foo: "Mike and Amanda"') == 'foo: "Mike and Amanda"'
-        # Test with single quotes
-        assert event_query_tools._capitalize_standalone_and("foo: 'Mike and Amanda'") == "foo: 'Mike and Amanda'"
-        # Test with mixed quotes and multiple 'and's
-        assert event_query_tools._capitalize_standalone_and('foo: "Mike and Amanda" and bar: "another and"') == 'foo: "Mike and Amanda" AND bar: "another and"'
-        # Test with 'and' in a word
-        assert event_query_tools._capitalize_standalone_and('command and control') == 'command AND control'
-        # Test with no spaces around 'and'
-        assert event_query_tools._capitalize_standalone_and('field:one andtwo') == 'field:one andtwo'
-        # Test with multiple 'and's to be capitalized
-        assert event_query_tools._capitalize_standalone_and('this and that and the other') == 'this AND that AND the other'
     @pytest.mark.asyncio
     async def test_process_groupby_response_edge_cases(self):
         # Test no metrics key
