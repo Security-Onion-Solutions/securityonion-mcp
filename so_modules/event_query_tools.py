@@ -190,8 +190,7 @@ def _capitalize_standalone_and(query: str) -> str:
         # If group 2 ('and') is found, it's a standalone 'and', so capitalize it
         elif match.group(2):
             return 'AND'
-        # Should not happen with the given regex, but as a fallback
-        else:
-            return match.group(0)
+        # This fallback is unreachable with the given regex
+        return match.group(0)  # pragma: no cover
 
     return pattern.sub(replace_and, query)

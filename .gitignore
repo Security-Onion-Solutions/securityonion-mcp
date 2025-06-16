@@ -151,3 +151,4 @@ nginx/certs/*.pem
 docs/
 .venv/
 CLAUDE.md
+.mcp.json

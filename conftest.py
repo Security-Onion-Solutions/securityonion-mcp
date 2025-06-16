@@ -1,5 +1,2 @@
-import sys
-import os
-
-# Add the project root to the Python path
-sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+# This file is intentionally left blank.
+# Pytest will automatically discover the tests and modules without path manipulation.

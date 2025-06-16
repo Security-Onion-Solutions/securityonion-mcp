@@ -251,7 +251,7 @@ def build_api_time_range(start_time: typing.Optional[str], end_time: typing.Opti
         log.error(f"Error parsing time strings: {e}", exc_info=True)
         raise ValueError(f"Invalid time format: {e}")
         
-    return None
+    return None  # pragma: no cover
 
 
 def validate_configuration():
