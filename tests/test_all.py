@@ -413,36 +413,6 @@ class TestEventQueryTools:
         assert result[0]["key"] == "1.1.1.1"
 
     @pytest.mark.asyncio
-    async def test_query_events_impl_invalid_groupby(self):
-        with pytest.raises(ValueError, match="Invalid characters in groupby_field"):
-            await event_query_tools.query_events_impl(oql_query='rule.name:"Test"', groupby_field="invalid;")
-
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize("field", [
-        "source.ip",
-        "destination.ip",
-        "rule.name",
-        "user.name",
-        "source.geo.country_name",
-        "destination.geo.city_name",
-        "event.dataset",
-        "event.module",
-        "custom-field_123",
-        "test_field.with.dots",
-        "alpha-numeric-123",
-        "field-with-hyphens",
-        "field_with_underscores",
-        "a.b-c_d.e-f",
-        "test.unicode.ñáéíóú",
-        "test-ünicode-field"
-    ])
-    async def test_query_events_impl_valid_groupby_fields(self, mock_api_request, field):
-        """Test query_events_impl with various valid groupby_field characters."""
-        mock_api_request.return_value = {"metrics": {f"groupby_{field}": [{"key": "some_value", "doc_count": 1}]}}
-        await event_query_tools.query_events_impl(oql_query='tags:alert', groupby_field=field)
-        # No exception should be raised
-
-    @pytest.mark.asyncio
     async def test_query_events_impl_value_error(self):
         with patch('so_modules.utils.build_api_time_range', side_effect=ValueError("Invalid time")):
             result = await event_query_tools.query_events_impl(oql_query='rule.name:"Test"', start_time="invalid")

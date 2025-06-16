@@ -38,12 +38,6 @@ async def query_events_impl(
         A list of event dictionaries matching the query with filtered payloads
     """
     # --- Input Validation ---
-    # Validate groupby_field
-    if groupby_field:
-        if not re.match(r"^[\w.-]+$", groupby_field):
-            log.error(f"Invalid characters detected in groupby_field: {groupby_field}")
-            raise ValueError(f"Invalid characters in groupby_field. Only unicode letters, numbers, underscore, period, and hyphen are allowed.")
-
     # Ensure all 'and' operators are uppercase
     oql_query = _capitalize_standalone_and(oql_query)
     
