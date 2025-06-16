@@ -260,30 +260,14 @@ class TestUtils:
         assert utils.escape_oql_value("no quotes") == "'no quotes'"
         assert utils.escape_oql_value(123) == "123"
         assert utils.escape_oql_value("C:\\path\\to\\file") == "'C:\\path\\to\\file'"
-        assert utils.escape_oql_value(["a", "b'c"]) == "[a, 'b''c']"
+        assert utils.escape_oql_value(["a", "b'c"]) == "['a', 'b''c']"
+        assert utils.escape_oql_value("Mike's House") == "'Mike''s House'"
 
     def test_filter_event_payload(self):
         payload = {"a": 1, "b": 2, "c": 3}
         allowed = {"a", "c"}
         assert utils.filter_event_payload(payload, allowed) == {"a": 1, "c": 3}
         assert utils.filter_event_payload([], allowed) == {} # Non-dict payload
-
-    @patch('so_modules.utils.datetime')
-    def test_parse_time_range(self, mock_dt):
-        mock_dt.now.return_value = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-        mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
-        start, end = utils.parse_time_range("1h")
-        assert start == "2024/01/01 11:00:00 AM"
-        start, end = utils.parse_time_range("1d")
-        assert start == "2023/12/31 12:00:00 PM"
-        with pytest.raises(ValueError):
-            utils.parse_time_range("invalid")
-        with pytest.raises(ValueError):
-            utils.parse_time_range("1x")
-        with pytest.raises(ValueError):
-            utils.parse_time_range("-h")
-        with pytest.raises(ValueError):
-            utils.parse_time_range("-d")
 
     def test_parse_datetime_string(self):
         assert isinstance(utils.parse_datetime_string("now"), datetime)
@@ -304,16 +288,6 @@ class TestUtils:
             utils.parse_datetime_string("-xd")
         with pytest.raises(ValueError):
             utils.parse_datetime_string("-xm")
-
-    @patch('so_modules.utils.datetime')
-    def test_parse_relative_time(self, mock_dt):
-        base_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-        mock_dt.now.return_value = base_time
-        assert utils.parse_relative_time("+1h") == (base_time + timedelta(hours=1)).isoformat()
-        assert utils.parse_relative_time("-1d") == (base_time - timedelta(days=1)).isoformat()
-        assert utils.parse_relative_time("1m") == (base_time - timedelta(minutes=1)).isoformat()
-        with pytest.raises(ValueError):
-            utils.parse_relative_time("1x")
 
     @patch('so_modules.utils.parse_datetime_string')
     def test_build_api_time_range(self, mock_parse):
@@ -440,8 +414,33 @@ class TestEventQueryTools:
 
     @pytest.mark.asyncio
     async def test_query_events_impl_invalid_groupby(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Invalid characters in groupby_field"):
             await event_query_tools.query_events_impl(oql_query='rule.name:"Test"', groupby_field="invalid;")
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("field", [
+        "source.ip",
+        "destination.ip",
+        "rule.name",
+        "user.name",
+        "source.geo.country_name",
+        "destination.geo.city_name",
+        "event.dataset",
+        "event.module",
+        "custom-field_123",
+        "test_field.with.dots",
+        "alpha-numeric-123",
+        "field-with-hyphens",
+        "field_with_underscores",
+        "a.b-c_d.e-f",
+        "test.unicode.ñáéíóú",
+        "test-ünicode-field"
+    ])
+    async def test_query_events_impl_valid_groupby_fields(self, mock_api_request, field):
+        """Test query_events_impl with various valid groupby_field characters."""
+        mock_api_request.return_value = {"metrics": {f"groupby_{field}": [{"key": "some_value", "doc_count": 1}]}}
+        await event_query_tools.query_events_impl(oql_query='tags:alert', groupby_field=field)
+        # No exception should be raised
 
     @pytest.mark.asyncio
     async def test_query_events_impl_unbalanced_quotes(self):
@@ -464,6 +463,19 @@ class TestEventQueryTools:
         assert event_query_tools._capitalize_standalone_and('field: "a and b" and c') == 'field: "a and b" AND c'
         assert event_query_tools._capitalize_standalone_and('field: "a AND b" AND c') == 'field: "a AND b" AND c'
 
+    def test_capitalize_standalone_and_advanced(self):
+        # Test case from the issue description
+        assert event_query_tools._capitalize_standalone_and('foo: "Mike and Amanda"') == 'foo: "Mike and Amanda"'
+        # Test with single quotes
+        assert event_query_tools._capitalize_standalone_and("foo: 'Mike and Amanda'") == "foo: 'Mike and Amanda'"
+        # Test with mixed quotes and multiple 'and's
+        assert event_query_tools._capitalize_standalone_and('foo: "Mike and Amanda" and bar: "another and"') == 'foo: "Mike and Amanda" AND bar: "another and"'
+        # Test with 'and' in a word
+        assert event_query_tools._capitalize_standalone_and('command and control') == 'command AND control'
+        # Test with no spaces around 'and'
+        assert event_query_tools._capitalize_standalone_and('field:one andtwo') == 'field:one andtwo'
+        # Test with multiple 'and's to be capitalized
+        assert event_query_tools._capitalize_standalone_and('this and that and the other') == 'this AND that AND the other'
     @pytest.mark.asyncio
     async def test_process_groupby_response_edge_cases(self):
         # Test no metrics key
@@ -480,16 +492,6 @@ class TestEventQueryTools:
     def test_enhance_query(self):
         assert 'NOT metadata.raw_index:"logs-soc-so"' in event_query_tools._enhance_query("test")
 
-    def test_capitalize_standalone_and_fallback(self):
-        import re
-        original_regex_str = r'(\"[^\"]*\"|\'[^\']*\')|\b(and)\b'
-        modified_regex_str = r'(\"[^\"]*\"|\'[^\']*\')|\b(and)\b|(fallback_trigger)'
-        modified_regex_obj = re.compile(modified_regex_str, re.IGNORECASE)
-        with patch('re.compile', return_value=modified_regex_obj) as mock_compile:
-            query = "this is a fallback_trigger"
-            result = event_query_tools._capitalize_standalone_and(query)
-            mock_compile.assert_called_once_with(original_regex_str, re.IGNORECASE)
-            assert result == query
 
 # --- Final Coverage Tests ---
 
@@ -530,15 +532,6 @@ async def test_playbook_tools_exception_logging(mocker):
     with patch('so_modules.playbook_tools.logger.error') as mock_log:
         await playbook_tools.get_playbook_questions_impl("alert-id")
         mock_log.assert_called_once()
-
-def test_parse_time_range_invalid_formats():
-    """
-    Test invalid formats for parse_time_range to ensure they raise ValueErrors.
-    """
-    with pytest.raises(ValueError, match="Invalid hours format: -h"):
-        utils.parse_time_range("-h")
-    with pytest.raises(ValueError, match="Invalid days format: -d"):
-        utils.parse_time_range("-d")
 
 @pytest.mark.asyncio
 async def test_only_end_time_provided_warning(mocker):
@@ -677,43 +670,6 @@ async def test_get_capabilities_with_tools(mocker):
     assert len(caps.tools.tools) == 1
 
 @pytest.mark.asyncio
-async def test_parse_relative_time_no_base_time(mocker):
-    """
-    Test parse_relative_time without a base time.
-    """
-    now = datetime.now(timezone.utc)
-    mock_dt = MagicMock()
-    mock_dt.now.return_value = now
-    mocker.patch('so_modules.utils.datetime', mock_dt)
-    assert utils.parse_relative_time("1h") == (now - timedelta(hours=1)).isoformat()
-
-@pytest.mark.asyncio
-async def test_parse_relative_time_with_base_time(mocker):
-    """
-    Test parse_relative_time with a base time.
-    """
-    base_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-    assert utils.parse_relative_time("+1h", base_time=base_time) == (base_time + timedelta(hours=1)).isoformat()
-
-@pytest.mark.asyncio
-async def test_parse_relative_time_invalid_unit(mocker):
-    """
-    Test parse_relative_time with an invalid unit.
-    """
-    with pytest.raises(ValueError, match="Invalid relative time format: 1x"):
-        utils.parse_relative_time("1x")
-
-@pytest.mark.asyncio
-async def test_parse_relative_time_default_sign(mocker):
-    """
-    Test parse_relative_time with default sign.
-    """
-    now = datetime.now(timezone.utc)
-    mock_dt = MagicMock()
-    mock_dt.now.return_value = now
-    mocker.patch('so_modules.utils.datetime', mock_dt)
-    assert utils.parse_relative_time("1h") == (now - timedelta(hours=1)).isoformat()
-@pytest.mark.asyncio
 async def test_query_events_impl_unhandled_exception(mock_api_request):
     """
     Test that a non-ValueError, non-API exception is caught and handled.
@@ -776,10 +732,3 @@ async def test_get_playbook_questions_with_index(mocker):
     result = await playbook_tools.get_playbook_questions_impl("test-alert", playbook_index=0)
     assert len(result["playbooks"]) == 1
     assert result["playbooks"][0]["name"] == "Playbook 1"
-
-def test_parse_time_range_today():
-    """
-    Test parse_time_range with the 'today' keyword.
-    """
-    start, end = utils.parse_time_range("today")
-    assert "12:00:00 AM" in start

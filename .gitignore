@@ -152,3 +152,5 @@ docs/
 .venv/
 CLAUDE.md
 .mcp.json
+# MCP configuration file
+.mcp.json

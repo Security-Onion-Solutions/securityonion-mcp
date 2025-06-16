@@ -26,47 +26,6 @@ def filter_event_payload(payload: dict, allowed_fields: typing.Set[str]) -> dict
         return {}
     return {field: payload[field] for field in allowed_fields if field in payload}
 
-def parse_time_range(time_range_str: str) -> tuple[str, str]:
-    """
-    Parses a time range string (e.g., '24h', '7d', 'today') into start and end datetime strings
-    formatted for the Security Onion API.
-    """
-    now = datetime.now(timezone.utc)
-    start_time = None
-
-    time_range_str = time_range_str.lower().strip()
-
-    if time_range_str == "today":
-        start_time = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif time_range_str.endswith('h'):
-        try:
-            match = re.match(r"^(-?)(\d+)h$", time_range_str)
-            if match:
-                hours_val = int(match.group(2))
-                start_time = now - timedelta(hours=hours_val)
-            else:
-                raise ValueError(f"Invalid hours format: {time_range_str}")
-        except (ValueError, IndexError):
-            raise ValueError(f"Invalid hours format: {time_range_str}")
-    elif time_range_str.endswith('d'):
-        try:
-            match = re.match(r"^(-?)(\d+)d$", time_range_str)
-            if match:
-                days_val = int(match.group(2))
-                start_time = now - timedelta(days=days_val)
-            else:
-                raise ValueError(f"Invalid days format: {time_range_str}")
-        except (ValueError, IndexError):
-            raise ValueError(f"Invalid days format: {time_range_str}")
-    else:
-        raise ValueError(f"Invalid time range format: {time_range_str}")
-
-    date_format = "%Y/%m/%d %I:%M:%S %p"
-    start_str = start_time.strftime(date_format)
-    end_str = now.strftime(date_format)
-
-    return start_str, end_str
-
 def parse_datetime_string(time_str: str) -> datetime:
     """
     Parses a single time string into a timezone-aware datetime object (UTC).
@@ -113,48 +72,6 @@ def parse_datetime_string(time_str: str) -> datetime:
             raise ValueError(f"Invalid time string format: '{time_str}'. Use relative ('-6h', '-5m', '-7d'), 'now', 'today', or absolute '{absolute_format}'.")
 
 
-def parse_relative_time(time_str: str, base_time: typing.Optional[datetime] = None) -> str:
-    """
-    Parse a relative time string and return an ISO formatted datetime string.
-    
-    Args:
-        time_str: Relative time like "+3h", "-1d", "+2m"
-        base_time: Base time to calculate from (defaults to now)
-        
-    Returns:
-        ISO formatted datetime string
-    """
-    if base_time is None:
-        base_time = datetime.now(timezone.utc)
-    
-    time_str = time_str.strip()
-    
-    # Handle positive/negative signs
-    if time_str.startswith('+'):
-        sign = 1
-        time_str = time_str[1:]
-    elif time_str.startswith('-'):
-        sign = -1
-        time_str = time_str[1:]
-    else:
-        sign = -1  # Default to past
-    
-    # Parse the time unit
-    if time_str.endswith('h'):
-        hours = int(time_str[:-1])
-        delta = timedelta(hours=hours * sign)
-    elif time_str.endswith('d'):
-        days = int(time_str[:-1])
-        delta = timedelta(days=days * sign)
-    elif time_str.endswith('m'):
-        minutes = int(time_str[:-1])
-        delta = timedelta(minutes=minutes * sign)
-    else:
-        raise ValueError(f"Invalid relative time format: {time_str}")
-    
-    result_time = base_time + delta
-    return result_time.isoformat()
-
 
 def escape_oql_value(value: typing.Any) -> str:
     """
@@ -163,21 +80,15 @@ def escape_oql_value(value: typing.Any) -> str:
     - If the value is a string, it escapes special characters and quotes if necessary.
     - Otherwise, it converts the value to a string.
     """
-    if isinstance(value, list):
-        return "[" + ", ".join([escape_oql_value(item) for item in value]) + "]"
-
     if isinstance(value, str):
-        # Un-escape then re-escape single quotes
-        temp_value = value.replace("\\'", "'")
-        escaped = temp_value.replace("'", "''")
-
-        # Quote if it contains spaces or special characters
-        if ' ' in value or any(c in escaped for c in ['\\', "'", '"', '*', '?', ':', '(', ')', '[', ']', '{', '}']):
-            return f"'{escaped}'"
-        
-        return escaped
-
-    return str(value)
+        # Escape single quotes for OQL by doubling them up
+        return f"'{value.replace("'", "''")}'"
+    elif isinstance(value, list):
+        # Recursively escape each item in the list
+        return f"[{', '.join(map(escape_oql_value, value))}]"
+    else:
+        # For numbers and other types, just convert to string
+        return str(value)
 
 
 def get_nested_field(data: typing.Dict[str, typing.Any], field_path: str) -> typing.Any:

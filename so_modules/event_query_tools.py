@@ -40,9 +40,9 @@ async def query_events_impl(
     # --- Input Validation ---
     # Validate groupby_field
     if groupby_field:
-        if not re.match(r"^[a-zA-Z0-9_.]+$", groupby_field):
+        if not re.match(r"^[\w.-]+$", groupby_field):
             log.error(f"Invalid characters detected in groupby_field: {groupby_field}")
-            raise ValueError(f"Invalid characters in groupby_field. Only alphanumeric, underscore, and period are allowed.")
+            raise ValueError(f"Invalid characters in groupby_field. Only unicode letters, numbers, underscore, period, and hyphen are allowed.")
 
     # Basic validation for oql_query (balanced quotes)
     if oql_query.count("'") % 2 != 0 or oql_query.count('"') % 2 != 0:
@@ -176,21 +176,13 @@ def _capitalize_standalone_and(query: str) -> str:
     """
     Capitalizes 'and' when it's a standalone word, ignoring 'and' inside quotes.
     """
-    # This regex finds 'and' as a whole word, but also captures the quoted substrings
-    # to avoid replacements inside them.
-    pattern = re.compile(
-        r'(\"[^\"]*\"|\'[^\']*\')|\b(and)\b',
-        re.IGNORECASE
-    )
-
-    def replace_and(match):
-        # If group 1 (quoted string) is found, return it unchanged
-        if match.group(1):
-            return match.group(1)
-        # If group 2 ('and') is found, it's a standalone 'and', so capitalize it
-        elif match.group(2):
-            return 'AND'
-        # This fallback is unreachable with the given regex
-        return match.group(0)  # pragma: no cover
-
-    return pattern.sub(replace_and, query)
+    # Split the query by quoted strings, keeping the delimiters
+    parts = re.split(r'(".*?"|\'.*?\')', query)
+    
+    # Process each part: capitalize 'and' in non-quoted parts
+    for i in range(len(parts)):
+        # Non-quoted parts are at even indices
+        if i % 2 == 0:
+            parts[i] = re.sub(r'\band\b', 'AND', parts[i], flags=re.IGNORECASE)
+            
+    return "".join(parts)
