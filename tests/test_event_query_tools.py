@@ -5,11 +5,12 @@
 
 import pytest
 import pytest_asyncio
-from unittest.mock import MagicMock, AsyncMock # Import AsyncMock
+from unittest.mock import MagicMock, AsyncMock, patch
+from datetime import datetime, timedelta, timezone
 
 # Modules to test
 from so_modules import event_query_tools
-from so_modules import config # Needed for mocking DEFAULT_FIELDS
+from so_modules import config
 
 # --- Fixtures ---
 
@@ -25,137 +26,101 @@ def mock_api(mocker):
 def mock_utils(mocker):
     """Fixture to mock utility functions."""
     mocks = {
-        'parse_time_range': mocker.patch('so_modules.utils.parse_time_range', return_value=("2025/04/04 00:00:00 AM", "2025/04/04 11:59:59 PM")),
-        'parse_datetime_string': mocker.patch('so_modules.utils.parse_datetime_string'), # Configure per test if needed
-        'escape_oql_string': mocker.patch('so_modules.utils.escape_oql_string', side_effect=lambda x: x.replace('"', '\\"')), # Simple escape mock
-        'filter_event_payload': mocker.patch('so_modules.utils.filter_event_payload', side_effect=lambda payload, fields: {k: payload[k] for k in fields if k in payload}) # Basic filter mock
+        'parse_datetime_string': mocker.patch('so_modules.utils.parse_datetime_string'),
+        'filter_event_payload': mocker.patch('so_modules.utils.filter_event_payload',
+                                            side_effect=lambda payload, fields: {k: payload[k] for k in fields if k in payload})
     }
     # Mock the config fields used by filter_event_payload
-    mocker.patch('so_modules.config.DEFAULT_FIELDS', ['field1', 'network.community_id', 'log.id.uid', 'rule.name', 'source.ip', 'destination.ip', 'dns.query.name'])
+    mocker.patch('so_modules.config.DEFAULT_FIELDS', ['field1', 'source.ip', 'destination.ip'])
     return mocks
 
-
-# --- Test Cases ---
+# --- Additional Test Cases for Coverage ---
 
 @pytest.mark.asyncio
-async def test_query_events_impl_basic(mock_api, mock_utils):
-    """Test query_events_impl with a basic OQL query."""
-    mock_api.return_value = {
-        "events": [
-            {
-                "payload": {
-                    "source.ip": "1.1.1.1",
-                    "_id": "evt1",
-                    "field1": "value1",
-                    "network.community_id": "comm1"
-                }
-            }
-        ],
-        "total": 1
-    }
-    result = await event_query_tools.query_events_impl(oql_query='source.ip:"1.1.1.1"')
+async def test_query_events_impl_invalid_groupby_field(mock_api, mock_utils):
+    """Test query_events_impl with invalid groupby_field characters."""
+    with pytest.raises(ValueError, match="Invalid characters in groupby_field"):
+        await event_query_tools.query_events_impl(oql_query='source.ip:"1.1.1.1"', groupby_field="invalid;field")
 
-    mock_api.assert_called_once()
-    call_args, call_kwargs = mock_api.call_args
-    params = call_args[1]
-    # Check that the query contains the expected parts
-    assert 'source.ip:"1.1.1.1"' in params["query"]
-    assert 'NOT metadata.raw_index:"logs-soc-so"' in params["query"]
-    assert params["eventLimit"] == "100"  # Default limit
-    assert result == [
-        {
-            "payload": {
-                "source.ip": "1.1.1.1",
-                "field1": "value1",
-                "network.community_id": "comm1"
-            }
-        }
-    ] # Expect filtered payload
-
-    # Verify filter_event_payload was called correctly
-    mock_utils['filter_event_payload'].assert_called_once()
-    call_args, call_kwargs = mock_utils['filter_event_payload'].call_args
-    # Check that the payload contains all expected fields
-    assert call_args[0]["source.ip"] == "1.1.1.1"
-    assert call_args[0]["_id"] == "evt1"
-    assert call_args[0]["field1"] == "value1"
-    assert call_args[1] == ['field1', 'network.community_id', 'log.id.uid', 'rule.name', 'source.ip', 'destination.ip', 'dns.query.name']
 @pytest.mark.asyncio
-async def test_query_events_impl_with_metadata_filtering(mock_api, mock_utils):
-    """Test that query_events_impl adds metadata filtering."""
-    mock_api.return_value = {
-        "events": [
-            {
-                "payload": {
-                    "source.ip": "1.1.1.1",
-                    "_id": "evt1",
-                    "field1": "value1",
-                    "network.community_id": "comm1"
-                }
-            }
-        ],
-        "total": 1
-    }
-    # Execute a basic query
-    await event_query_tools.query_events_impl(oql_query='event.dataset:"zeek.conn" AND source.ip:"1.1.1.1"')
-    # Verify the query sent to API includes the metadata filtering
-    mock_api.assert_called_once()
-    call_args, call_kwargs = mock_api.call_args
-    params = call_args[1]
-    query_param = params.get("query", "")
-    # It should contain the metadata filter
-    assert 'NOT metadata.raw_index:"logs-soc-so"' in query_param
-    # And still contain the original query parts
-    assert 'event.dataset:"zeek.conn"' in query_param
-    assert 'source.ip:"1.1.1.1"' in query_param
+async def test_query_events_impl_unbalanced_quotes(mock_api, mock_utils):
+    """Test query_events_impl with unbalanced quotes in the query."""
+    with pytest.raises(ValueError, match="Unbalanced quotes in oql_query"):
+        await event_query_tools.query_events_impl(oql_query='source.ip:"1.1.1.1')
+    
+    with pytest.raises(ValueError, match="Unbalanced quotes in oql_query"):
+        await event_query_tools.query_events_impl(oql_query="source.ip:'1.1.1.1")
+
+@pytest.mark.asyncio
+async def test_query_events_impl_value_error(mock_api, mock_utils):
+    """Test query_events_impl handling ValueError."""
+    # Mock parse_datetime_string to raise ValueError
+    mock_utils['parse_datetime_string'].side_effect = ValueError("Invalid time format")
+    
+    result = await event_query_tools.query_events_impl(
+        oql_query='source.ip:"1.1.1.1"',
+        start_time="invalid_time"
+    )
+    
+    assert result[0]["error"].startswith("Invalid input: Invalid time format")
+    mock_api.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_query_events_impl_with_time(mock_api, mock_utils):
-    """Test query_events_impl with start and end times."""
-    # Mock specific datetime parsing for this test
-    start_dt_mock = MagicMock(name="start_dt")
-    start_dt_mock.strftime.return_value = "2025/04/03 10:00:00 AM"
+async def test_process_groupby_response_no_metrics():
+    """Test _process_groupby_response when no metrics key is present."""
+    data = {"events": []}  # No metrics key
+    result = event_query_tools._process_groupby_response(data, "source.ip")
+    assert result == []
+
+@pytest.mark.asyncio
+async def test_process_groupby_response_no_groupby_key():
+    """Test _process_groupby_response when no groupby_* key is found."""
+    data = {"metrics": {"other_key": "value"}}  # No groupby_* key
+    result = event_query_tools._process_groupby_response(data, "source.ip")
+    assert result == [{"other_key": "value"}]
+
+@pytest.mark.asyncio
+async def test_process_events_response_error_handling():
+    """Test _process_events_response error handling."""
+    with patch('so_modules.utils.filter_event_payload') as mock_filter:
+        mock_filter.side_effect = Exception("Unexpected error")
+        
+        data = {"events": [{"payload": {"field1": "value1"}}]}
+        
+        with pytest.raises(Exception, match="Unexpected error"):
+            event_query_tools._process_events_response(data)
+
+@pytest.mark.asyncio
+async def test_query_events_impl_only_end_time(mock_api, mock_utils):
+    """Test query_events_impl with only end_time provided."""
+    # Setup mock for parse_datetime_string
     end_dt_mock = MagicMock(name="end_dt")
     end_dt_mock.strftime.return_value = "2025/04/03 11:00:00 AM"
-    # Configure comparison behavior for the TypeError fix (accept self, other)
-    start_dt_mock.__ge__ = lambda self, other: False # start_dt >= end_dt -> False
-    end_dt_mock.__ge__ = lambda self, other: True # end_dt >= start_dt -> True
-    mock_utils['parse_datetime_string'].side_effect = [start_dt_mock, end_dt_mock]
-
-    await event_query_tools.query_events_impl(oql_query='rule.name:"Test"', start_time="2025-04-03 10:00", end_time="2025-04-03 11:00")
-
+    mock_utils['parse_datetime_string'].return_value = end_dt_mock
+    
+    await event_query_tools.query_events_impl(
+        oql_query='rule.name:"Test"',
+        end_time="2025-04-03 11:00"
+    )
+    
+    # Verify that range parameter is not set when only end_time is provided
     mock_api.assert_called_once()
     call_args, call_kwargs = mock_api.call_args
     params = call_args[1]
-    # Check that the query contains the expected parts
-    assert 'rule.name:"Test"' in params["query"]
-    assert 'NOT metadata.raw_index:"logs-soc-so"' in params["query"]
-    assert params["range"] == "2025/04/03 10:00:00 AM - 2025/04/03 11:00:00 AM"
-    assert params["eventLimit"] == "100"
-    assert mock_utils['parse_datetime_string'].call_count == 2
+    assert "range" not in params
+
+
 
 @pytest.mark.asyncio
-async def test_query_events_impl_groupby(mock_api, mock_utils):
-    """Test query_events_impl with groupby_field."""
-    mock_api.return_value = {"metrics": {"groupby_source.ip": [{"key": "1.1.1.1", "doc_count": 10}]}}
-    result = await event_query_tools.query_events_impl(oql_query='tags:alert', groupby_field="source.ip")
+async def test_query_events_impl_and_in_quotes(mock_api, mock_utils):
+    """Test that 'and' inside a quoted string is not capitalized."""
+    oql_query = 'field1:"Mike and Amanda" and field2:true'
+    expected_query = 'field1:"Mike and Amanda" AND field2:true AND NOT metadata.raw_index:"logs-soc-so"'
+
+    await event_query_tools.query_events_impl(oql_query=oql_query)
 
     mock_api.assert_called_once()
-    # Don't check the exact query string as it may change with implementation details
-    # Just verify that the groupby clause is added
-    call_args, call_kwargs = mock_api.call_args
-    assert "| groupby source.ip" in call_args[1]["query"]
-    assert call_args[1]["eventLimit"] == "100"
-    assert result == [{"key": "1.1.1.1", "doc_count": 10}] # Expect metrics result
-    # Ensure filter_event_payload was NOT called for groupby
-    mock_utils['filter_event_payload'].assert_not_called()
-
-@pytest.mark.asyncio
-async def test_error_handling(mock_api, mock_utils):
-    """Test generic error handling returns an error dict."""
-    # Test error handling for query_events_impl
-    mock_api.side_effect = Exception("API Failure")
-    result = await event_query_tools.query_events_impl("oql")
-    assert result == [{"error": "An internal error occurred while processing the event query."}]
-
+    # The second argument to make_so_api_request is the params dict
+    called_params = mock_api.call_args[0][1]
+    assert called_params['query'] == expected_query

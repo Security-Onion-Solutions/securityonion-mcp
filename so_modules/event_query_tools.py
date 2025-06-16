@@ -51,7 +51,7 @@ async def query_events_impl(
     # --- End Input Validation ---
 
     # Ensure all 'and' operators are uppercase
-    oql_query = re.sub(r'\b(and)\b', 'AND', oql_query, flags=re.IGNORECASE)
+    oql_query = _capitalize_standalone_and(oql_query)
     
     # Initialize parameters dictionary
     params = {"eventLimit": str(limit)}
@@ -69,7 +69,7 @@ async def query_events_impl(
         log.info(f"Executing event query: {final_oql}")
         
         # Handle time range
-        time_range = _build_time_range(start_time, end_time)
+        time_range = utils.build_api_time_range(start_time, end_time)
         if time_range:
             params["range"] = time_range
             log.info(f"Using time range: {time_range}")
@@ -99,53 +99,6 @@ async def query_events_impl(
         }
         log.error(f"API request failed for event query: {error_details}", exc_info=True)
         return [{"error": "An internal error occurred while processing the event query."}]
-
-
-def _build_time_range(start_time: typing.Optional[str], end_time: typing.Optional[str]) -> typing.Optional[str]:
-    """
-    Build a time range string for the API from start and end times.
-    
-    Args:
-        start_time: Optional start time string
-        end_time: Optional end time string
-        
-    Returns:
-        Formatted time range string or None if no valid range could be created
-    """
-    if not start_time and not end_time:
-        log.info("No time range provided, using API default.")
-        return None
-        
-    api_date_format = "%Y/%m/%d %I:%M:%S %p"
-    
-    try:
-        start_dt = utils.parse_datetime_string(start_time) if start_time else None
-        end_dt = utils.parse_datetime_string(end_time) if end_time else None
-        
-        # Both start and end times provided
-        if start_dt and end_dt:
-            if start_dt >= end_dt:
-                log.warning(f"Start time '{start_time}' is not before end time '{end_time}'. Swapping them.")
-                start_dt, end_dt = end_dt, start_dt
-            return f"{start_dt.strftime(api_date_format)} - {end_dt.strftime(api_date_format)}"
-            
-        # Only start time provided
-        elif start_dt:
-            now_dt = utils.parse_datetime_string("now")
-            if start_dt >= now_dt:
-                log.warning(f"Start time '{start_time}' is in the future or now. Query might return no results.")
-            return f"{start_dt.strftime(api_date_format)} - {now_dt.strftime(api_date_format)}"
-            
-        # Only end time provided
-        elif end_dt:
-            log.warning("Only end_time provided. Relying on API default start time.")
-            return None
-            
-    except ValueError as e:
-        log.error(f"Error parsing time strings: {e}", exc_info=True)
-        raise ValueError(f"Invalid time format: {e}")
-        
-    return None
 
 
 def _process_groupby_response(data: dict, groupby_field: str) -> list[dict]:
@@ -218,3 +171,27 @@ def _process_events_response(data: dict) -> list[dict]:
         log.error(f"Unexpected error during payload processing: {e}", exc_info=True)
         raise
 
+
+def _capitalize_standalone_and(query: str) -> str:
+    """
+    Capitalizes 'and' when it's a standalone word, ignoring 'and' inside quotes.
+    """
+    # This regex finds 'and' as a whole word, but also captures the quoted substrings
+    # to avoid replacements inside them.
+    pattern = re.compile(
+        r'(\"[^\"]*\"|\'[^\']*\')|\b(and)\b',
+        re.IGNORECASE
+    )
+
+    def replace_and(match):
+        # If group 1 (quoted string) is found, return it unchanged
+        if match.group(1):
+            return match.group(1)
+        # If group 2 ('and') is found, it's a standalone 'and', so capitalize it
+        elif match.group(2):
+            return 'AND'
+        # Should not happen with the given regex, but as a fallback
+        else:
+            return match.group(0)
+
+    return pattern.sub(replace_and, query)

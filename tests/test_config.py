@@ -12,6 +12,22 @@ import importlib  # To reload the module
 import so_modules.config as config
 
 
+# --- Tests for SO_CA_CERT ---
+
+@mock.patch.dict(os.environ, {}, clear=True)
+def test_so_ca_cert():
+    """Tests that SO_CA_CERT is read from the environment."""
+    # Test when the variable is set
+    os.environ["SO_CA_CERT"] = "/path/to/cert.pem"
+    importlib.reload(config)
+    assert config.SO_CA_CERT == "/path/to/cert.pem"
+
+    # Test when the variable is not set
+    del os.environ["SO_CA_CERT"]
+    importlib.reload(config)
+    assert config.SO_CA_CERT is None
+
+
 # --- Tests for SO_API_VERIFY_SSL ---
 
 @pytest.mark.parametrize(

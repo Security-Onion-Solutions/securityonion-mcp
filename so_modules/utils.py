@@ -6,22 +6,10 @@
 from datetime import datetime, timedelta, timezone
 import re
 import typing
+import logging
 
-def escape_oql_string(value: typing.Any) -> str:
-    """
-    Escapes a value for safe inclusion within an OQL string literal.
-    Converts the value to a string and replaces single quotes (') with
-    two single quotes ('').
+log = logging.getLogger(__name__)
 
-    Args:
-        value: The value to escape.
-
-    Returns:
-        The escaped string, safe for OQL string literals.
-    """
-    if isinstance(value, list):
-        return "[" + ", ".join([f"'{escape_oql_string(item)}'" for item in value]) + "]"
-    return str(value).replace("'", "''")
 
 def filter_event_payload(payload: dict, allowed_fields: typing.Set[str]) -> dict:
     """
@@ -168,27 +156,28 @@ def parse_relative_time(time_str: str, base_time: typing.Optional[datetime] = No
     return result_time.isoformat()
 
 
-def escape_oql_value(value: str) -> str:
+def escape_oql_value(value: typing.Any) -> str:
     """
-    Escape special characters in OQL values.
-    
-    Args:
-        value: The value to escape
+    Escapes a value for safe inclusion in an OQL query.
+    - If the value is a list, it formats it as an OQL list.
+    - If the value is a string, it escapes special characters and quotes if necessary.
+    - Otherwise, it converts the value to a string.
+    """
+    if isinstance(value, list):
+        return "[" + ", ".join([escape_oql_value(item) for item in value]) + "]"
+
+    if isinstance(value, str):
+        # Un-escape then re-escape single quotes
+        temp_value = value.replace("\\'", "'")
+        escaped = temp_value.replace("'", "''")
+
+        # Quote if it contains spaces or special characters
+        if ' ' in value or any(c in escaped for c in ['\\', "'", '"', '*', '?', ':', '(', ')', '[', ']', '{', '}']):
+            return f"'{escaped}'"
         
-    Returns:
-        Escaped value safe for OQL queries
-    """
-    # Add backslashes before special characters
-    special_chars = ['\\', '"', '*', '?', ':', '(', ')', '[', ']', '{', '}']
-    escaped = value
-    for char in special_chars:
-        escaped = escaped.replace(char, f'\\{char}')
-    
-    # If value contains spaces, wrap in quotes
-    if ' ' in escaped:
-        escaped = f'"{escaped}"'
-    
-    return escaped
+        return escaped
+
+    return str(value)
 
 
 def get_nested_field(data: typing.Dict[str, typing.Any], field_path: str) -> typing.Any:
@@ -215,3 +204,68 @@ def get_nested_field(data: typing.Dict[str, typing.Any], field_path: str) -> typ
             return None
     
     return current
+
+
+def build_api_time_range(start_time: typing.Optional[str], end_time: typing.Optional[str]) -> typing.Optional[str]:
+    """
+    Build a time range string for the API from start and end times.
+    
+    Args:
+        start_time: Optional start time string
+        end_time: Optional end time string
+        
+    Returns:
+        Formatted time range string or None if no valid range could be created
+    """
+    if not start_time and not end_time:
+        log.info("No time range provided, using API default.")
+        return None
+        
+    api_date_format = "%Y/%m/%d %I:%M:%S %p"
+    
+    try:
+        start_dt = parse_datetime_string(start_time) if start_time else None
+        end_dt = parse_datetime_string(end_time) if end_time else None
+        
+        # Both start and end times provided
+        if start_dt and end_dt:
+            if start_dt >= end_dt:
+                log.warning(f"Start time '{start_time}' is not before end time '{end_time}'. Swapping them.")
+                start_dt, end_dt = end_dt, start_dt
+            return f"{start_dt.strftime(api_date_format)} - {end_dt.strftime(api_date_format)}"
+            
+        # Only start time provided
+        elif start_dt:
+            now_dt = parse_datetime_string("now")
+            if start_dt >= now_dt:
+                log.warning(f"Start time '{start_time}' is in the future or now. Query might return no results.")
+            return f"{start_dt.strftime(api_date_format)} - {now_dt.strftime(api_date_format)}"
+            
+        # Only end time provided
+        elif end_dt:
+            log.warning("Only end_time provided. Relying on API default start time.")
+            return None
+        
+        
+    except ValueError as e:
+        log.error(f"Error parsing time strings: {e}", exc_info=True)
+        raise ValueError(f"Invalid time format: {e}")
+        
+    return None
+
+
+def validate_configuration():
+    """
+    Checks if the required configuration is set.
+    Raises ValueError if configuration is missing.
+    """
+    from . import config
+    try:
+        config.check_config()
+        if config.SO_CA_CERT:
+            log.info(f"Using custom CA certificate from: {config.SO_CA_CERT}")
+        else:
+            log.info("Using default SSL verification.")
+    except ValueError as e:
+        log.critical(f"Configuration error: {e}")
+        raise
