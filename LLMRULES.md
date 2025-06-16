@@ -73,6 +73,26 @@ Security Onion uses tags to categorize data by type. Using tags in queries is of
 | `ics` | Industrial Control Systems data | Various ICS event.dataset fields |
 | `bsap_ip_header` | BSAP/IP protocol header data | `event.dataset:bsap_ip_header` |
 
+## Time Format Requirements for query_events
+
+**IMPORTANT**: The `query_events` tool requires specific time formats:
+- **Relative times**: `-6h`, `-5m`, `-7d`, `-30d` (negative values for past times)
+- **Keywords**: `now`, `today`
+- **Absolute format**: `YYYY/MM/DD HH:MM:SS AM/PM` (e.g., `2025/06/09 08:00:00 AM`)
+
+**DO NOT use ISO 8601 format** (e.g., `2025-06-09T08:00:00`) - this will cause an error!
+
+### Examples:
+```python
+# CORRECT time formats:
+query_events(oql_query="tags:alert", start_time="-24h", end_time="now")
+query_events(oql_query="tags:conn", start_time="-7d", end_time="-1d")
+query_events(oql_query="source.ip:10.0.0.1", start_time="2025/06/09 08:00:00 AM", end_time="2025/06/09 10:00:00 AM")
+
+# INCORRECT - DO NOT USE:
+query_events(oql_query="tags:alert", start_time="2025-06-09T08:00:00", end_time="2025-06-09T10:00:00")
+```
+
 ## OQL Segments (Right of pipe |)
 
 ### sortby
@@ -98,3 +118,31 @@ destination.port:80 AND tags:conn | groupby network.protocol destination.port
 tags:alert | groupby event.module
 tags:conn | groupby source.ip destination.ip
 ```
+
+## Playbook Feature
+
+Security Onion MCP includes a playbook feature for guided investigation of alerts. When you have an alert ID:
+
+### Using get_playbook_questions Tool
+```
+# Get investigation questions for an alert. The alert id would be the rule.uuid from the actual alert.
+get_playbook_questions(alert_id="6F64990A-ACDA-40B6-AB71-134C073013B5")
+
+# Get questions from only a specific playbook (0-based index)
+get_playbook_questions(alert_id="alert-123", playbook_index=0)
+```
+
+### What the Tool Returns
+The tool returns investigation questions from playbooks associated with the alert:
+- **question**: The investigation question to answer
+- **context**: Why this question is important for the investigation
+- **answer_sources**: Where to find relevant data (e.g., network logs, firewall logs)
+- **suggested_query**: A template query that may contain variables
+- **time_range**: Suggested time range for the investigation (e.g., "+/-1h")
+
+### Using Playbook Questions
+After retrieving the questions:
+1. Review the questions and their context
+2. Build appropriate OQL queries based on the specific alert data
+3. Consider the suggested time ranges and data sources
+4. Execute queries using `query_events` to answer the investigation questions

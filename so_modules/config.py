@@ -13,6 +13,7 @@ log = logging.getLogger(__name__)
 SO_CLIENT_ID = os.getenv("SO_CLIENT_ID")
 SO_CLIENT_SECRET = os.getenv("SO_CLIENT_SECRET")
 SO_API_ENDPOINT = os.getenv("SO_API_ENDPOINT")
+SO_CA_CERT = os.getenv("SO_CA_CERT")
 
 # SSL verification setting
 raw_verify_ssl = os.getenv("SO_API_VERIFY_SSL")

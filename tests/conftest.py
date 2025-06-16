@@ -27,7 +27,7 @@ def ensure_env_vars():
     try:
         from so_modules import config
         importlib.reload(config)
-    except ImportError:
+    except ImportError:  # pragma: no cover
         # The config module might not be imported yet
         pass
     

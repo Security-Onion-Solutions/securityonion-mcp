@@ -22,8 +22,11 @@ async def get_so_token() -> str:
     data = {"grant_type": "client_credentials"}
 
     try:
+        # Determine the verify parameter for requests
+        verify_param = config.SO_CA_CERT if config.SO_CA_CERT else config.SO_API_VERIFY_SSL
+
         # Note: verify=False mirrors curl -k. Consider addressing certificate issues.
-        response = await asyncio.to_thread(requests.post, token_url, auth=auth, data=data, verify=config.SO_API_VERIFY_SSL)
+        response = await asyncio.to_thread(requests.post, token_url, auth=auth, data=data, verify=verify_param)
         response.raise_for_status()
         token_data = response.json()
         if "access_token" not in token_data:
@@ -57,8 +60,11 @@ async def make_so_api_request(endpoint_path: str, params: dict) -> dict:
     params.setdefault("eventLimit", "10")
 
     try:
+        # Determine the verify parameter for requests
+        verify_param = config.SO_CA_CERT if config.SO_CA_CERT else config.SO_API_VERIFY_SSL
+
         # Note: verify=False mirrors curl -k.
-        response = await asyncio.to_thread(requests.get, url, headers=headers, params=params, verify=config.SO_API_VERIFY_SSL)
+        response = await asyncio.to_thread(requests.get, url, headers=headers, params=params, verify=verify_param)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:

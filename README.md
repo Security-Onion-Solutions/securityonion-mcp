@@ -18,7 +18,8 @@ The server uses the following environment variables:
 * `SO_CLIENT_ID`: Your Security Onion client ID
 * `SO_CLIENT_SECRET`: Your Security Onion client secret
 * `SO_API_ENDPOINT`: The URL of your Security Onion manager (e.g., https://yourmanager)
-* `SO_API_VERIFY_SSL`: Set to "false" to disable SSL verification (useful for self-signed certificates)
+* `SO_API_VERIFY_SSL`: Set to "false" to disable SSL verification (useful for self-signed certificates).
+* `SO_CA_CERT`: Optional path to a custom CA certificate file for TLS verification. If you are using a self-signed certificate on your Security Onion manager, provide the path to the CA certificate here.
 * `SO_ENABLE_FILE_LOGGING`: Set to "true" to enable file logging to securityonion-mcp.log (disabled by default)
 
 ## Setup and Running
@@ -62,14 +63,15 @@ The server uses the following environment variables:
         "SO_CLIENT_ID": "YOURCLIENT",
         "SO_CLIENT_SECRET": "YOURSECRET",
         "SO_API_ENDPOINT": "https://yourmanager",
-        "SO_API_VERIFY_SSL": "false",
+        "SO_API_VERIFY_SSL": "true",
+        "SO_CA_CERT": "/path/to/your/ca.crt",
         "SO_ENABLE_FILE_LOGGING": "false"
       },
       "syncTimeout": 10000,
       "type": "stdio",
       "alwaysAllow": [
         "ping",
-        "query_alerts"
+        "query_events"
       ],
       "disabled": true
     }
@@ -92,14 +94,15 @@ The server uses the following environment variables:
         "SO_CLIENT_ID": "YOURCLIENT",
         "SO_CLIENT_SECRET": "YOURSECRET",
         "SO_API_ENDPOINT": "https://yourmanager",
-        "SO_API_VERIFY_SSL": "false",
+        "SO_API_VERIFY_SSL": "true",
+        "SO_CA_CERT": "C:\\path\\to\\your\\ca.crt",
         "SO_ENABLE_FILE_LOGGING": "false"
       },
       "syncTimeout": 10000,
       "type": "stdio",
       "alwaysAllow": [
         "ping",
-        "query_alerts"
+        "query_events"
       ],
       "disabled": true
     }
@@ -120,7 +123,8 @@ The server uses the following environment variables:
         "SO_CLIENT_ID": "YOURCLIENT",
         "SO_CLIENT_SECRET": "YOURSECRET",
         "SO_API_ENDPOINT": "https://yourmanager",
-        "SO_API_VERIFY_SSL": "false",
+        "SO_API_VERIFY_SSL": "true",
+        "SO_CA_CERT": "/path/to/your/ca.crt",
         "SO_ENABLE_FILE_LOGGING": "false"
       }
     }
@@ -139,7 +143,8 @@ The server uses the following environment variables:
         "SO_CLIENT_ID": "YOURCLIENT",
         "SO_CLIENT_SECRET": "YOURSECRET",
         "SO_API_ENDPOINT": "https://yourmanager",
-        "SO_API_VERIFY_SSL": "false",
+        "SO_API_VERIFY_SSL": "true",
+        "SO_CA_CERT": "C:\\path\\to\\your\\ca.crt",
         "SO_ENABLE_FILE_LOGGING": "false"
       }
     }
@@ -199,6 +204,19 @@ To use these rules with Claude Desktop:
 
 3. **Use the project for all Security Onion queries:**
    Return to this project whenever you need to query Security Onion. The LLMRULES.md file will always be available in the project knowledge, so you don't need to upload it for each new conversation.
+
+## Playbook Feature
+
+The Security Onion MCP Server includes a playbook feature that helps guide investigation of security alerts. When you have an alert:
+
+1. The server retrieves playbooks associated with that alert type
+2. Each playbook contains investigation questions designed to help analyze the incident
+3. The questions include context, suggested sources, and time ranges for investigation
+
+To use the playbook feature with the MCP tools:
+- Use `get_playbook_questions` with an alert ID to retrieve investigation questions
+- Optionally specify a playbook index to get questions from just one playbook
+- The LLM can then use the questions to build appropriate OQL queries based on the specific alert data
 
 ## Event Payload Filtering
 
