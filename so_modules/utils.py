@@ -6,22 +6,10 @@
 from datetime import datetime, timedelta, timezone
 import re
 import typing
+import logging
 
-def escape_oql_string(value: typing.Any) -> str:
-    """
-    Escapes a value for safe inclusion within an OQL string literal.
-    Converts the value to a string and replaces single quotes (') with
-    two single quotes ('').
+log = logging.getLogger(__name__)
 
-    Args:
-        value: The value to escape.
-
-    Returns:
-        The escaped string, safe for OQL string literals.
-    """
-    if isinstance(value, list):
-        return "[" + ", ".join([f"'{escape_oql_string(item)}'" for item in value]) + "]"
-    return str(value).replace("'", "''")
 
 def filter_event_payload(payload: dict, allowed_fields: typing.Set[str]) -> dict:
     """
@@ -37,47 +25,6 @@ def filter_event_payload(payload: dict, allowed_fields: typing.Set[str]) -> dict
     if not isinstance(payload, dict):
         return {}
     return {field: payload[field] for field in allowed_fields if field in payload}
-
-def parse_time_range(time_range_str: str) -> tuple[str, str]:
-    """
-    Parses a time range string (e.g., '24h', '7d', 'today') into start and end datetime strings
-    formatted for the Security Onion API.
-    """
-    now = datetime.now(timezone.utc)
-    start_time = None
-
-    time_range_str = time_range_str.lower().strip()
-
-    if time_range_str == "today":
-        start_time = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif time_range_str.endswith('h'):
-        try:
-            match = re.match(r"^(-?)(\d+)h$", time_range_str)
-            if match:
-                hours_val = int(match.group(2))
-                start_time = now - timedelta(hours=hours_val)
-            else:
-                raise ValueError(f"Invalid hours format: {time_range_str}")
-        except (ValueError, IndexError):
-            raise ValueError(f"Invalid hours format: {time_range_str}")
-    elif time_range_str.endswith('d'):
-        try:
-            match = re.match(r"^(-?)(\d+)d$", time_range_str)
-            if match:
-                days_val = int(match.group(2))
-                start_time = now - timedelta(days=days_val)
-            else:
-                raise ValueError(f"Invalid days format: {time_range_str}")
-        except (ValueError, IndexError):
-            raise ValueError(f"Invalid days format: {time_range_str}")
-    else:
-        raise ValueError(f"Invalid time range format: {time_range_str}")
-
-    date_format = "%Y/%m/%d %I:%M:%S %p"
-    start_str = start_time.strftime(date_format)
-    end_str = now.strftime(date_format)
-
-    return start_str, end_str
 
 def parse_datetime_string(time_str: str) -> datetime:
     """
@@ -123,3 +70,113 @@ def parse_datetime_string(time_str: str) -> datetime:
             return dt
         except ValueError:
             raise ValueError(f"Invalid time string format: '{time_str}'. Use relative ('-6h', '-5m', '-7d'), 'now', 'today', or absolute '{absolute_format}'.")
+
+
+
+def escape_oql_value(value: typing.Any) -> str:
+    """
+    Escapes a value for safe inclusion in an OQL query.
+    - If the value is a list, it formats it as an OQL list.
+    - If the value is a string, it escapes special characters and quotes if necessary.
+    - Otherwise, it converts the value to a string.
+    """
+    if isinstance(value, str):
+        # Escape single quotes for OQL by doubling them up
+        return f"'{value.replace("'", "''")}'"
+    elif isinstance(value, list):
+        # Recursively escape each item in the list
+        return f"[{', '.join(map(escape_oql_value, value))}]"
+    else:
+        # For numbers and other types, just convert to string
+        return str(value)
+
+
+def get_nested_field(data: typing.Dict[str, typing.Any], field_path: str) -> typing.Any:
+    """
+    Get a value from a nested dictionary using dot notation.
+    
+    Args:
+        data: The dictionary to search
+        field_path: Dot-separated path to the field (e.g., "source.ip")
+        
+    Returns:
+        The value at the field path, or None if not found
+    """
+    if not data or not field_path:
+        return None
+    
+    parts = field_path.split('.')
+    current = data
+    
+    for part in parts:
+        if isinstance(current, dict) and part in current:
+            current = current[part]
+        else:
+            return None
+    
+    return current
+
+
+def build_api_time_range(start_time: typing.Optional[str], end_time: typing.Optional[str]) -> typing.Optional[str]:
+    """
+    Build a time range string for the API from start and end times.
+    
+    Args:
+        start_time: Optional start time string
+        end_time: Optional end time string
+        
+    Returns:
+        Formatted time range string or None if no valid range could be created
+    """
+    if not start_time and not end_time:
+        log.info("No time range provided, using API default.")
+        return None
+        
+    api_date_format = "%Y/%m/%d %I:%M:%S %p"
+    
+    try:
+        start_dt = parse_datetime_string(start_time) if start_time else None
+        end_dt = parse_datetime_string(end_time) if end_time else None
+        
+        # Both start and end times provided
+        if start_dt and end_dt:
+            if start_dt >= end_dt:
+                log.warning(f"Start time '{start_time}' is not before end time '{end_time}'. Swapping them.")
+                start_dt, end_dt = end_dt, start_dt
+            return f"{start_dt.strftime(api_date_format)} - {end_dt.strftime(api_date_format)}"
+            
+        # Only start time provided
+        elif start_dt:
+            now_dt = parse_datetime_string("now")
+            if start_dt >= now_dt:
+                log.warning(f"Start time '{start_time}' is in the future or now. Query might return no results.")
+            return f"{start_dt.strftime(api_date_format)} - {now_dt.strftime(api_date_format)}"
+            
+        # Only end time provided
+        elif end_dt:
+            log.warning("Only end_time provided. Relying on API default start time.")
+            return None
+        
+        
+    except ValueError as e:
+        log.error(f"Error parsing time strings: {e}", exc_info=True)
+        raise ValueError(f"Invalid time format: {e}")
+        
+    return None  # pragma: no cover
+
+
+def validate_configuration():
+    """
+    Checks if the required configuration is set.
+    Raises ValueError if configuration is missing.
+    """
+    from . import config
+    try:
+        config.check_config()
+        if config.SO_CA_CERT:
+            log.info(f"Using custom CA certificate from: {config.SO_CA_CERT}")
+        else:
+            log.info("Using default SSL verification.")
+    except ValueError as e:
+        log.critical(f"Configuration error: {e}")
+        raise
