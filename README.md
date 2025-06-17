@@ -54,11 +54,11 @@ The server uses the following environment variables:
 {
   "mcpServers": {
     "securityonion": {
-      "command": "/home/user/Projects/securityonion-mcp/venv/bin/python",
+      "command": "venv/bin/python",
       "args": [
-        "/home/user/Projects/securityonion-mcp/security_onion_server.py"
+        "security_onion_server.py"
       ],
-      "workingDirectory": "/home/user/Projects/securityonion-mcp",
+      "cwd": "/home/user/securityonion-mcp",
       "env": {
         "SO_CLIENT_ID": "YOURCLIENT",
         "SO_CLIENT_SECRET": "YOURSECRET",
@@ -85,11 +85,11 @@ The server uses the following environment variables:
 {
   "mcpServers": {
     "securityonion": {
-      "command": "C:\\Users\\user\\Projects\\securityonion-mcp\\venv\\Scripts\\python.exe",
+      "command": "venv\\Scripts\\python.exe",
       "args": [
-        "C:\\Users\\user\\Projects\\securityonion-mcp\\security_onion_server.py"
+        "security_onion_server.py"
       ],
-      "workingDirectory": "C:\\Users\\user\\Projects\\securityonion-mcp",
+      "cwd": "C:\\Users\\user\\securityonion-mcp",
       "env": {
         "SO_CLIENT_ID": "YOURCLIENT",
         "SO_CLIENT_SECRET": "YOURSECRET",

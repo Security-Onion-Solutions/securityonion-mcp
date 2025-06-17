@@ -98,13 +98,12 @@ celerybeat.pid
 
 # Environments
 .env
-# .venv # Original entry, commented out or removed if present
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
-.venv/ # Ignore the virtual environment directory created by run.py
+.venv/
 
 # Spyder project settings
 .spyderproject
@@ -133,23 +132,9 @@ cython_debug/
 # VS Code settings
 .vscode/
 
-# Docker
-docker-compose.override.yml
-docker-compose.*.yml
-
-# Sensitive Config Files (Consider if these should be version controlled in your specific deployment)
-# config/instances.yaml
-# config/clients.yaml
-
-# Certificates (Dummy or Real)
-nginx/certs/*.key
-nginx/certs/*.crt
-nginx/certs/*.pem
 .roomodes
 .roo
+.roorules
 .clinerules
-docs/
-.venv/
 CLAUDE.md
 .mcp.json
-# MCP configuration file
