@@ -74,7 +74,7 @@ Security Onion uses tags to categorize data by type. Using tags in queries is of
 | `bsap_ip_header` | BSAP/IP protocol header data | `event.dataset:bsap_ip_header` |
 
 ### Alert Severity
-There 4 severites under event.severity_label:
+There 4 severities under event.severity_label:
 - low
 - medium
 - high
