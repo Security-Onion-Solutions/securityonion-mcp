@@ -81,8 +81,7 @@ There 4 severities under event.severity_label:
 - critical
 
 ## Alert Triage
-Use get_playbook_questions and answer the questions when doing detailed analysis of an alert.
-If you find other alerts in the course of an investigation make sure you do the same for those alerts so you can have a full picture.
+Use get_playbook_questions and answer them when doing detailed analysis of a single alert.
 
 ## Time Format Requirements for query_events
 
