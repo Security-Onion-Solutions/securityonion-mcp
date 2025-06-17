@@ -73,6 +73,9 @@ Security Onion uses tags to categorize data by type. Using tags in queries is of
 | `ics` | Industrial Control Systems data | Various ICS event.dataset fields |
 | `bsap_ip_header` | BSAP/IP protocol header data | `event.dataset:bsap_ip_header` |
 
+### Alert Severity
+Use event.severity_label when determining alert levels.
+
 ## Time Format Requirements for query_events
 
 **IMPORTANT**: The `query_events` tool requires specific time formats:
