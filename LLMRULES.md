@@ -111,6 +111,13 @@ Multiple groupby segments create independent data tables:
 ```
 | groupby field1 | groupby field2
 ```
+
+### table
+Outputs the specified field(s) in tabular format.
+```
+| table field1 field2
+```
+
 ## Example Queries
 ```
 destination.port:80 AND event.dataset:conn | groupby network.protocol
