@@ -10,7 +10,7 @@ import mcp.types as types
 import asyncio
 import logging
 import typing # Need this for Optional
-from so_modules import api, config, event_query_tools, utility_tools, utils, playbook_tools
+from so_modules import api, config, event_query_tools, utility_tools, utils, playbook_tools, alert_tools
 # Configure basic logging (console), setting level to WARNING to suppress DEBUG/INFO
 # This also configures the root logger initially.
 logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -144,6 +144,71 @@ async def get_playbook_questions(
     return await playbook_tools.get_playbook_questions_impl(
         alert_id=alert_id,
         playbook_index=playbook_index
+    )
+
+
+@server.tool()
+async def acknowledge_alerts(
+    acknowledge: bool = True,
+    search_filter: typing.Optional[str] = None,
+    event_filter: typing.Optional[typing.Dict[str, str]] = None,
+    date_range: typing.Optional[str] = None,
+    date_range_format: typing.Optional[str] = None,
+    timezone: typing.Optional[str] = None,
+    escalate: typing.Optional[bool] = None
+) -> typing.Dict[str, typing.Any]:
+    """
+    Acknowledge or unacknowledge alert events matching the given criteria.
+    
+    This tool allows you to mark alerts as acknowledged (reviewed) or unacknowledged.
+    Acknowledged alerts will not appear on users' Alert screens after refresh.
+    
+    Args:
+        acknowledge: Whether to acknowledge (True) or unacknowledge (False) the events.
+        search_filter: OQL search filter to find matching events (e.g., "tags:alert AND rule.uuid:xyz").
+        event_filter: Optional dict of field:value pairs to further filter events (e.g., {"rule.name": "Suspicious Login"}).
+        date_range: Date range for searching events (e.g., "2024/12/03 02:31:35 PM - 2024/12/04 02:31:35 PM").
+        date_range_format: Format of the date range (default: "2006/01/02 3:04:05 PM").
+        timezone: Timezone for date range (default: "America/New_York").
+        escalate: Whether events have been escalated to a case.
+    
+    Returns:
+        Dictionary containing update results including:
+        - updated: Number of events updated
+        - failed: Number of events that failed to update
+        - errors: List of any errors encountered
+        - completeTime: When the operation completed
+        - elapsedMs: How long the operation took
+    
+    Examples:
+        # Acknowledge all unacknowledged alerts from a specific rule
+        await acknowledge_alerts(
+            acknowledge=True,
+            search_filter="tags:alert AND NOT event.acknowledged:true AND rule.uuid:bf86ef21-41e6-417b-9a05-b9ea6bf28a38"
+        )
+        
+        # Acknowledge alerts with specific criteria
+        await acknowledge_alerts(
+            acknowledge=True,
+            search_filter="tags:alert AND NOT event.acknowledged:true",
+            event_filter={"rule.name": "Security Onion - SOC Login Failure", "event.module": "sigma"}
+        )
+        
+        # Unacknowledge previously acknowledged alerts
+        await acknowledge_alerts(
+            acknowledge=False,
+            search_filter="tags:alert AND event.acknowledged:true",
+            date_range="2024/12/01 00:00:00 AM - 2024/12/04 11:59:59 PM"
+        )
+    """
+    return await alert_tools.acknowledge_alerts_impl(
+        acknowledge=acknowledge,
+        search_filter=search_filter,
+        event_filter=event_filter,
+        date_range=date_range,
+        date_range_format=date_range_format,
+        timezone=timezone,
+        escalate=escalate
     )
 
 
