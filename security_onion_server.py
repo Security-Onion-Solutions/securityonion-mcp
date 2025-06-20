@@ -10,7 +10,7 @@ import mcp.types as types
 import asyncio
 import logging
 import typing # Need this for Optional
-from so_modules import api, config, event_query_tools, utility_tools, utils, playbook_tools, alert_tools
+from so_modules import api, config, event_query_tools, utility_tools, utils, playbook_tools, alert_tools, pcap_tools
 # Configure basic logging (console), setting level to WARNING to suppress DEBUG/INFO
 # This also configures the root logger initially.
 logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -209,6 +209,69 @@ async def acknowledge_alerts(
         date_range_format=date_range_format,
         timezone=timezone,
         escalate=escalate
+    )
+
+
+@server.tool()
+async def get_pcap(
+    community_id: typing.Optional[str] = None,
+    start_time: typing.Optional[str] = None,
+    end_time: typing.Optional[str] = None,
+    source_ip: typing.Optional[str] = None,
+    destination_ip: typing.Optional[str] = None,
+    source_port: typing.Optional[int] = None,
+    destination_port: typing.Optional[int] = None,
+    event_id: typing.Optional[str] = None,
+    format: str = "base64"
+) -> typing.Dict[str, typing.Any]:
+    """
+    Retrieve PCAP data from Security Onion based on various search criteria.
+    
+    This tool allows you to download packet capture (PCAP) data for specific network
+    connections or events. You must provide at least one search criteria.
+    
+    Args:
+        community_id: The network community ID to retrieve PCAP for (e.g., "1:bzmeJDGMrYGddwMIFvT900znyP4=")
+        start_time: Start time for PCAP search (e.g., "-1h", "2024/12/20 10:00:00 AM")
+        end_time: End time for PCAP search (e.g., "now", "2024/12/20 11:00:00 AM")
+        source_ip: Filter by source IP address
+        destination_ip: Filter by destination IP address
+        source_port: Filter by source port number
+        destination_port: Filter by destination port number
+        event_id: Specific event ID (log.id.uid) to get PCAP for
+        format: Output format - "base64" (default) or "file"
+    
+    Returns:
+        Dictionary containing:
+        - pcap_data: Base64 encoded PCAP data (if format is base64)
+        - metadata: Information about the PCAP (size, packet count, time range)
+        - error: Error message if retrieval failed
+    
+    Examples:
+        # Get PCAP by community ID (from a connection or alert)
+        await get_pcap(community_id="1:bzmeJDGMrYGddwMIFvT900znyP4=")
+        
+        # Get PCAP for specific IP communication in the last hour
+        await get_pcap(
+            source_ip="192.168.1.100",
+            destination_ip="10.0.0.50",
+            start_time="-1h",
+            end_time="now"
+        )
+        
+        # Get PCAP for a specific event
+        await get_pcap(event_id="CqZD628KKcY7ASZjj")
+    """
+    return await pcap_tools.get_pcap(
+        community_id=community_id,
+        start_time=start_time,
+        end_time=end_time,
+        source_ip=source_ip,
+        destination_ip=destination_ip,
+        source_port=source_port,
+        destination_port=destination_port,
+        event_id=event_id,
+        format=format
     )
 
 

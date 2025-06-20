@@ -278,3 +278,71 @@ The tool returns a dictionary containing:
    - Avoid putting values with wildcards directly in `search_filter`
    - Example: For "GPL ICMP PING *NIX", use `event_filter={"rule.name": "GPL ICMP PING *NIX"}`
    - This prevents the asterisk from being interpreted as a wildcard
+
+## PCAP Retrieval Feature
+
+Security Onion MCP includes a PCAP retrieval tool for downloading packet capture data. This tool allows you to get the actual network traffic for analysis in tools like Wireshark.
+
+### Using get_pcap Tool
+
+The `get_pcap` tool retrieves packet capture data based on various search criteria. You must provide at least one search parameter.
+
+### Tool Parameters
+- **community_id** (str): Network community ID from alerts/connections
+- **event_id** (str): Specific event ID (log.id.uid)
+- **source_ip** (str): Source IP address
+- **destination_ip** (str): Destination IP address
+- **source_port** (int): Source port number
+- **destination_port** (int): Destination port number
+- **start_time** (str): Start time (e.g., "-1h", "2024/12/20 10:00:00 AM")
+- **end_time** (str): End time (e.g., "now", "2024/12/20 11:00:00 AM")
+- **format** (str): Output format - "base64" (default) or "file"
+
+### Common Use Cases
+
+#### Get PCAP for a specific alert/connection
+```python
+# Using community ID from an alert or connection event
+get_pcap(community_id="1:bzmeJDGMrYGddwMIFvT900znyP4=")
+```
+
+#### Get PCAP for specific IP communication
+```python
+get_pcap(
+    source_ip="192.168.1.100",
+    destination_ip="10.0.0.50",
+    start_time="-1h",
+    end_time="now"
+)
+```
+
+#### Get PCAP for a specific event
+```python
+# Using log.id.uid from an event
+get_pcap(event_id="CqZD628KKcY7ASZjj")
+```
+
+#### Get PCAP by port and time range
+```python
+get_pcap(
+    destination_port=443,
+    start_time="-30m",
+    end_time="now"
+)
+```
+
+### Return Values
+The tool returns a dictionary containing:
+- **pcap_data**: Base64 encoded PCAP data (when format is "base64")
+- **metadata**: Information about the PCAP including:
+  - **size_bytes**: Size of the PCAP file
+  - **packet_count**: Number of packets captured
+  - **time_range**: Start and end times of packets
+- **error**: Error message if retrieval failed
+
+### Best Practices
+1. Use community ID from alerts/connections for precise PCAP retrieval
+2. Combine multiple filters for more targeted results
+3. Consider time ranges to limit PCAP size
+4. The base64 data can be decoded and saved as a .pcap file for analysis
+5. Check metadata first if you need to verify PCAP availability or size
