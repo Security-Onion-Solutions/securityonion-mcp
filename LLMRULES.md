@@ -156,3 +156,125 @@ After retrieving the questions:
 2. Build appropriate OQL queries based on the specific alert data
 3. Consider the suggested time ranges and data sources
 4. Execute queries using `query_events` to answer the investigation questions
+
+## Alert Acknowledgment Feature
+
+Security Onion MCP includes an alert acknowledgment tool for managing alert status. This tool allows you to mark alerts as acknowledged (reviewed) or unacknowledged.
+
+### Using acknowledge_alerts Tool
+
+The `acknowledge_alerts` tool helps manage alert visibility on Security Onion Alert screens. Acknowledged alerts won't appear on users' Alert screens after refresh.
+
+### Tool Parameters
+- **acknowledge** (bool): True to acknowledge, False to unacknowledge alerts
+- **search_filter** (str): OQL query to find matching alerts
+- **event_filter** (dict): Additional field:value pairs for filtering
+- **date_range** (str): Date range in format "YYYY/MM/DD HH:MM:SS AM/PM - YYYY/MM/DD HH:MM:SS AM/PM"
+- **date_range_format** (str): Format of date range (default: "2006/01/02 3:04:05 PM")
+- **timezone** (str): Timezone for date range (default: "America/New_York")
+- **escalate** (bool): Filter by escalation status
+
+### Common Use Cases
+
+#### Acknowledge a specific alert by log.id.uid
+```python
+# Most direct method - use event_filter with the alert's unique ID
+acknowledge_alerts(
+    acknowledge=True,
+    search_filter="tags:alert",
+    event_filter={"log.id.uid": "593101912711664"}
+)
+```
+
+#### Acknowledge all unacknowledged alerts from a specific rule
+```python
+acknowledge_alerts(
+    acknowledge=True,
+    search_filter="tags:alert AND NOT event.acknowledged:true AND rule.uuid:bf86ef21-41e6-417b-9a05-b9ea6bf28a38"
+)
+```
+
+#### Acknowledge alerts with specific criteria
+```python
+acknowledge_alerts(
+    acknowledge=True,
+    search_filter="tags:alert AND NOT event.acknowledged:true",
+    event_filter={"rule.name": "Security Onion - SOC Login Failure", "event.module": "sigma"}
+)
+```
+
+#### Acknowledge alerts with special characters in rule names
+```python
+# For rule names with asterisks (*) or other special characters
+# Use event_filter instead of including in search_filter
+acknowledge_alerts(
+    acknowledge=True,
+    search_filter="tags:alert AND NOT event.acknowledged:true",
+    event_filter={"rule.name": "GPL ICMP PING *NIX"}
+)
+
+# Note: Special characters like *, ?, [, ], and others can cause issues
+# when used directly in search_filter. Always use event_filter for exact matches.
+```
+
+#### Bulk acknowledge false positives
+```python
+acknowledge_alerts(
+    acknowledge=True,
+    search_filter="tags:alert AND source.ip:10.0.0.100 AND destination.port:445",
+    date_range="2024/12/03 00:00:00 AM - 2024/12/03 11:59:59 PM"
+)
+```
+
+#### Unacknowledge previously reviewed alerts for re-investigation
+```python
+acknowledge_alerts(
+    acknowledge=False,
+    search_filter="tags:alert AND event.acknowledged:true AND rule.name:\"Suspicious Process Creation\"",
+    date_range="2024/12/01 00:00:00 AM - 2024/12/04 11:59:59 PM"
+)
+```
+
+### Return Values
+The tool returns a dictionary containing:
+- **updated**: Number of alerts successfully updated
+- **failed**: Number of alerts that failed to update
+- **errors**: List of any errors encountered
+- **completeTime**: When the operation completed
+- **elapsedMs**: Duration of the operation in milliseconds
+
+### Best Practices
+1. Always include `tags:alert` in your search_filter to ensure you're only targeting alerts
+2. Use `NOT event.acknowledged:true` to find unacknowledged alerts
+3. Test your search_filter with `query_events` first to verify it matches the intended alerts
+4. Consider using date ranges to limit the scope when dealing with large alert volumes
+5. Check the return values to ensure all intended alerts were updated successfully
+
+### Troubleshooting Alert Acknowledgment
+
+#### Common Issues and Solutions
+
+1. **"Invalid input parameters" error**
+   - Ensure you're using the `event_filter` parameter for specific field matches
+   - Use `search_filter="tags:alert"` as the base query
+   - Example: To ack by log.id.uid, use `event_filter={"log.id.uid": "YOUR_ID"}`
+
+2. **403 Forbidden error**
+   - Check API credentials have proper permissions for alert acknowledgment
+   - Verify the SO_CLIENT_ID and SO_CLIENT_SECRET are correctly configured
+
+3. **No alerts updated (updatedCount: 0)**
+   - Verify the alert hasn't already been acknowledged
+   - Check that your search criteria match existing alerts
+   - Use `query_events` to test your search criteria first
+
+4. **Finding the right identifier**
+   - Use `log.id.uid` for Suricata/Zeek alerts (found in alert details)
+   - Use `rule.uuid` to acknowledge all alerts from a specific rule
+   - Combine multiple criteria in `event_filter` for precise targeting
+
+5. **Handling special characters in field values**
+   - Rule names with special characters (*, ?, [, ], etc.) should use `event_filter`
+   - Avoid putting values with wildcards directly in `search_filter`
+   - Example: For "GPL ICMP PING *NIX", use `event_filter={"rule.name": "GPL ICMP PING *NIX"}`
+   - This prevents the asterisk from being interpreted as a wildcard
