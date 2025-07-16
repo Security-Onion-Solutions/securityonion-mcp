@@ -10,6 +10,7 @@ This project contains the backend server for the Security Onion Model Context Pr
 
 *   Python 3.12+
 *   Access to set environment variables
+*   [Proper rights for your Security Onion API key](https://docs.securityonion.net/en/2.4/connect.html#authorization-rbac)
 
 ## Environment Variables
 
