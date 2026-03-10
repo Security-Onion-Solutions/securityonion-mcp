@@ -82,7 +82,8 @@ def escape_oql_value(value: typing.Any) -> str:
     """
     if isinstance(value, str):
         # Escape single quotes for OQL by doubling them up
-        return f"'{value.replace("'", "''")}'"
+        escaped_value = value.replace("'", "''")
+        return f"'{escaped_value}'"
     elif isinstance(value, list):
         # Recursively escape each item in the list
         return f"[{', '.join(map(escape_oql_value, value))}]"

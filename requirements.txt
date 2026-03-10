@@ -2,11 +2,13 @@
 # or more contributor license agreements. Licensed under the Elastic License 2.0 as shown at 
 # https://securityonion.net/license; you may not use this file except in compliance with the
 # Elastic License 2.0.
-requests
-python-dotenv
-mcp
-pytest
-pytest-mock
-pytest-asyncio
-pytest-cov
-pytest-env
+requests>=2.31.0
+python-dotenv>=1.0.0
+mcp>=1.0.0
+pytest>=7.4.0
+pytest-mock>=3.12.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+pytest-env>=0.8.0
+pip>=25.0.1
+setuptools>=78.1.1
